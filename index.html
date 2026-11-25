@@ -586,6 +586,8 @@ const Core = (() => {
 
   return {
     init(client) { sb = client; }, load, applyChange,
+    async getPrefs(uid) { const { data, error } = await sb.from("user_prefs").select("prefs").eq("user_id", uid).maybeSingle(); if (error) return { error }; return { prefs: data ? data.prefs : null }; },
+    async savePrefs(uid, prefs) { const { error } = await sb.from("user_prefs").upsert({ user_id: uid, prefs, updated_at: new Date().toISOString() }); return !error; },
     async logUsage(bytes) { const { error } = await sb.rpc("log_usage", { p_bytes: Math.round(bytes) }); return !error; },
     async monthUsage(fromISO) { const { data, error } = await sb.from("usage_log").select("*").gte("day", fromISO); return error ? null : data; },
     async usage() { const { data, error } = await sb.rpc("db_usage"); if (error) return null; return typeof data === "string" ? JSON.parse(data) : data; }, derive, newLead, newAction, newContact, remove, deletePreview, addListValue, removeListValue, renameListValue, deleteListValue, moveListValue, listUsage, isFixed, canMove, rename, editRow, removeRow, row, setFieldMany,
@@ -851,8 +853,23 @@ const esc = v => String(v === null || v === undefined ? "" : v).replace(/[&<>"']
 const fmtD = n => { if (!n || typeof n !== "number") return n ? String(n) : ""; const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 864e5); return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`; };
 const toInputDate = n => { const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 864e5); return d.toISOString().slice(0, 10); };
 const fromInputDate = s => { if (!s) return 0; const [y, m, d] = s.split("-").map(Number); return Math.floor(Date.UTC(y, m - 1, d) / 864e5) + 25569; };
+// προσωπικές ρυθμίσεις: στον browser και (αν υπάρχει ο πίνακας user_prefs) στη βάση, ώστε να ακολουθούν τον χρήστη σε κάθε συσκευή
+const PREF_KEYS = ["cols", "sorts", "year", "handler", "me", "orange", "red"];
 const LS = { get(k, d) { try { const v = localStorage.getItem("leadscrm:" + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem("leadscrm:" + k, JSON.stringify(v)); } catch (e) {} } };
+  set(k, v) { try { localStorage.setItem("leadscrm:" + k, JSON.stringify(v)); } catch (e) {} if (PREF_KEYS.includes(k)) schedulePrefs(); } };
+const prefSync = { uid: "", on: false, t: 0 };
+function collectPrefs() { const o = {}; for (const k of PREF_KEYS) { const v = LS.get(k, undefined); if (v !== undefined) o[k] = v; } return o; }
+function schedulePrefs() { if (!prefSync.on) return; clearTimeout(prefSync.t); prefSync.t = setTimeout(savePrefsNow, 1500); }
+async function savePrefsNow() { clearTimeout(prefSync.t); if (prefSync.on) await Core.savePrefs(prefSync.uid, collectPrefs()).catch(() => {}); }
+async function syncPrefs(uid) {
+  prefSync.uid = uid; prefSync.on = false;
+  const r = await Core.getPrefs(uid).catch(e => ({ error: e }));
+  if (r.error) return;                                 // ο πίνακας δεν έχει στηθεί: μένουν μόνο στον browser
+  if (r.prefs && Object.keys(r.prefs).length) {        // υπάρχουν στη βάση → εφαρμόζονται εδώ
+    for (const k of PREF_KEYS) { try { if (k in r.prefs) localStorage.setItem("leadscrm:" + k, JSON.stringify(r.prefs[k])); else localStorage.removeItem("leadscrm:" + k); } catch (e) {} }
+    prefSync.on = true;
+  } else { prefSync.on = true; await savePrefsNow(); }  // πρώτη φορά: ανεβαίνουν όσες υπάρχουν σε αυτόν τον browser
+}
 
 const ui = { view: "track", loaded: false, email: "", live: "", year: 0, handler: LS.get("handler", "Όλοι"), show: "open", q: "", stage: "",
   me: LS.get("me", ""), orange: 0, red: 0, cols: LS.get("cols", null), drawer: 0, cq: "", aq: "", ay: "", ah: "", at: "", sy: 0 };
@@ -891,19 +908,22 @@ async function flushUsage() {
   if (!ok) { usageLogOff = true; }   // ο πίνακας δεν έχει στηθεί ακόμα: σταματάμε σιωπηλά
 }
 setInterval(flushUsage, 60000);
-document.addEventListener("visibilitychange", () => { if (document.hidden) flushUsage(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden) { flushUsage(); if (prefSync.t) savePrefsNow(); } });
 const sb = window.supabase ? window.supabase.createClient(SUPA_URL, SUPA_KEY, { global: { fetch: countingFetch } }) : null;
 if (sb) Core.init(sb);
 let channel = null, reloadT = 0;
 async function startApp(session) {
   ui.email = session.user.email || "";
   try { await Core.load(); } catch (e) { toast(e.message, true); }
+  await syncPrefs(session.user.id);
+  ui.cols = (LS.get("cols", null) || DEFCOLS.slice()).filter(c => ALLCOLS[c]); if (!ui.cols.length) ui.cols = DEFCOLS.slice();
+  ui.sorts = LS.get("sorts", {}); ui.handler = LS.get("handler", "Όλοι"); ui.me = LS.get("me", "");
   ui.loaded = true;
   const ys = Core.derive().leads.map(l => l.year);
   ui.year = LS.get("year", 0) || Math.max(...ys, new Date().getFullYear());
   ui.sy = ui.year;
   ui.orange = LS.get("orange", 7); ui.red = LS.get("red", 21);
-  if (!ui.me) { const h = list("Χειριστής").find(h => !h.includes(",") && Core.norm(h).split(" ")[0] === Core.norm(ui.email).split(/[.@_]/)[0]); if (h) ui.me = h; }
+  if (!ui.me) { const h = list("Χειριστής").find(h => !h.includes(",") && Core.norm(h).split(" ")[0] === Core.norm(ui.email).split(/[.@_]/)[0]); if (h) { ui.me = h; LS.set("me", h); } }
   refreshDatalist(); render();
   if (!channel) {
     let wasDown = false;
@@ -1075,12 +1095,12 @@ function colPopover(anchor) {
     else if (t.dataset.c !== undefined) ui.cols = t.checked ? [...ui.cols, c] : ui.cols.filter(x => x !== c);
     else if (c) { const i = ui.cols.indexOf(c), j = t.dataset.up ? i - 1 : i + 1; if (j >= 0 && j < ui.cols.length) { [ui.cols[i], ui.cols[j]] = [ui.cols[j], ui.cols[i]]; } }
     else return;
-    LS.set("cols", ui.cols); draw(); $("#view").innerHTML = trackHTML(); bindMain(true); document.body.appendChild(p);
+    LS.set("cols", ui.cols); draw(); $("#view").innerHTML = trackHTML(); bindMain(true); applySorts($("#view")); document.body.appendChild(p);
   };
   const r = anchor.getBoundingClientRect();
   p.style.top = (r.bottom + window.scrollY + 6) + "px"; p.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 310)) + "px";
   document.body.appendChild(p);
-  setTimeout(() => document.addEventListener("click", function h(e) { if (!p.contains(e.target) && e.target !== anchor) { p.remove(); document.removeEventListener("click", h); } }), 0);
+  setTimeout(() => document.addEventListener("click", function h(e) { if (!e.target.isConnected || p.contains(e.target) || e.target === anchor || !p.isConnected) { if (!p.isConnected) document.removeEventListener("click", h); return; } p.remove(); document.removeEventListener("click", h); }), 0);
 }
 
 // ---- Εταιρείες ----
@@ -1342,6 +1362,7 @@ function helpHTML() {
   <h2 id="h-settings">Ρυθμίσεις</h2>
   <ul>
     <li><b>Όρια χρωμάτων:</b> μετά από πόσες ημέρες ένα lead γίνεται πορτοκαλί ή κόκκινο (μόνο για εσάς).</li>
+    <li><b>Προσωπικές ρυθμίσεις</b> (στήλες, ταξινομήσεις, φίλτρα χρονιάς/χειριστή, «Είμαι ο/η», όρια χρωμάτων): αποθηκεύονται στον λογαριασμό σας, άρα είναι ίδιες σε κάθε υπολογιστή και κινητό, και δεν χάνονται με τις ενημερώσεις της εφαρμογής.</li>
     <li><b>Νέος χειριστής:</b> μπαίνει στις λίστες. Για να μπορεί και να συνδεθεί, ο διαχειριστής του φτιάχνει λογαριασμό (δείτε παρακάτω).</li>
     <li><b>Λίστες επιλογών:</b> «Προσθήκη» νέας τιμής· περάστε το ποντίκι πάνω από μια τιμή για <b>✎</b> μετονομασία (αλλάζει και σε όλες τις εγγραφές), <b>↑ ↓</b> σειρά, <b>✕</b> διαγραφή (μόνο από τη λίστα). Οι τιμές «Εξέλιξη σε εκθέτη», «Ακύρωση» και οι καταστάσεις χορηγίας μετρούν στα στατιστικά: μετονομάζονται, αλλά δεν σβήνονται.</li>
     <li><b>Χώρες:</b> ενοποίηση παλιών ονομάτων (π.χ. Κίνα → China) με ένα κλικ.</li>
@@ -1378,7 +1399,7 @@ function helpHTML() {
 // ---- Ρυθμίσεις ----
 function settingsHTML() {
   const L = Core.S.lists;
-  return `<div class="two"><div class="sec"><h3>Εγώ & όρια χρωμάτων</h3><div class="card"><div class="fg">
+  return `<div class="two"><div class="sec"><h3>Εγώ & όρια χρωμάτων</h3><div class="card"><p class="muted" style="margin:0 0 8px;font-size:12.5px">${prefSync.on ? "Οι προσωπικές σας ρυθμίσεις (στήλες, ταξινομήσεις, φίλτρα, αυτές εδώ) αποθηκεύονται στον λογαριασμό σας και σας ακολουθούν σε κάθε συσκευή." : "Οι προσωπικές σας ρυθμίσεις κρατιούνται μόνο σε αυτόν τον browser. Για να σας ακολουθούν σε κάθε συσκευή, τρέξτε μία φορά το <b>db/user_prefs.sql</b> στο Supabase."}</p><div class="fg">
     <label>Είμαι ο/η (προεπιλογή χειριστή στις φόρμες)<select id="sMe">${opt(list("Χειριστής").filter(h => !h.includes(",")), ui.me, "—")}</select></label><span></span>
     <label>Πορτοκαλί μετά από (ημέρες)<input id="sO" type="number" min="1" value="${ui.orange}"></label>
     <label>Κόκκινο μετά από (ημέρες)<input id="sR" type="number" min="1" value="${ui.red}"></label></div></div></div>
@@ -1406,7 +1427,7 @@ function bindMain(partial) {
   if (!partial) {
     $("#exportBtn").onclick = exportExcel;
     $("#installBtn").onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; $("#installBtn").hidden = true; };
-    $("#logoutBtn").onclick = async () => { await flushUsage(); await sb.auth.signOut(); };
+    $("#logoutBtn").onclick = async () => { await flushUsage(); await savePrefsNow(); prefSync.on = false; await sb.auth.signOut(); };
     document.querySelectorAll("nav [data-view]").forEach(b => b.onclick = () => { ui.view = b.dataset.view; render(); });
     if (ui.view === "settings") loadUsage();
     document.querySelectorAll(".acts [data-form]").forEach(b => b.onclick = () => openForm(b.dataset.form, {}));
