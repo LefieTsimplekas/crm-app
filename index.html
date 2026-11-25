@@ -55,6 +55,8 @@ textarea{min-height:80px;resize:vertical}
 .kpi.r{border-color:var(--red)}.kpi.r b{color:var(--red)}.kpi.a b{color:var(--amb)}.kpi.g b{color:var(--grn)}
 .pipe{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 th.so{cursor:pointer;user-select:none}th.so:hover{background:var(--line)}th .si{font-size:10px;margin-left:4px;opacity:.35}th.so[data-dir] .si{opacity:1;color:var(--brand2)}
+.mchk{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0}.mchk label{flex-direction:row!important;align-items:center;gap:6px!important;border:1px solid var(--line);border-radius:99px;padding:4px 12px 4px 8px;color:var(--ink)!important;font-size:13.5px!important;cursor:pointer;background:var(--card)}
+.mchk label:has(input:checked){background:var(--brand);border-color:var(--brand);color:#fff!important}.mchk input{width:16px!important;height:16px;min-height:0;margin:0;flex:none;accent-color:var(--lime)}.mchk label{flex:none;white-space:nowrap}
 .cbx{position:relative}.cbx-list{position:absolute;left:0;right:0;top:100%;z-index:40;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-height:260px;overflow:auto;margin-top:2px}
 .cbx-list div{padding:6px 10px;cursor:pointer;color:var(--ink);font-size:14px}.cbx-list div small{color:var(--mute);margin-left:6px}.cbx-list div[aria-selected=true],.cbx-list div:hover{background:var(--bg2)}
 .chip{border:1px solid var(--line);background:var(--bg2);border-radius:99px;padding:5px 12px;font-size:13px}
@@ -1343,12 +1345,12 @@ const FORMS = {
   lead: { title: "Νέο lead / νέα εταιρεία", ok: "Αποθήκευση", hint: "Νέα εταιρεία ή παλιά εταιρεία για νέα χρονιά. Δημιουργεί εταιρεία (αν δεν υπάρχει), επαφή, lead και πρώτη ενέργεια.",
     groups: [["Εταιρεία", [F("company", "Εταιρεία * (διαλέξτε ή γράψτε νέο όνομα)", "company", { full: 1 }), sel("sector", "Κλάδος", "Κλάδος"), F("country", "Χώρα", "country"), sel("fgret", "FG/RET", "FG/RET"), sel("tellody", "Tellody", "Tellody")]],
       ["Επαφή", [F("cname", "Ονοματεπώνυμο", "text"), F("crole", "Θέση", "text"), F("cphone", "Τηλέφωνο", "text"), F("cemail", "Email", "email")]],
-      ["Lead", [sel("year", "Χρονιά *", "Χρονιά"), sel("source", "Προέλευση (τύπος · κανάλι)", "Προέλευση"), sel("handler", "Χειριστής", "Χειριστής"), sel("stage", "Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος"), sel("sponsor", "Χορηγία", "Χορηγία"), sel("hall", "Hall", "Hall"), F("sqm", "Τ.μ.", "number")]],
+      ["Lead", [sel("year", "Χρονιά *", "Χρονιά"), sel("source", "Προέλευση (τύπος · κανάλι)", "Προέλευση"), F("handler", "Χειριστής (ένας ή περισσότεροι)", "multi", { list: "Χειριστής" }), sel("stage", "Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος"), sel("sponsor", "Χορηγία", "Χορηγία"), sel("hall", "Hall", "Hall"), F("sqm", "Τ.μ.", "number")]],
       ["Πρώτη ενέργεια", [F("adate", "Ημερομηνία", "date"), sel("atype", "Τύπος ενέργειας", "Τύπος ενέργειας"), F("adesc", "Περιγραφή", "textarea", { full: 1 })]]],
     run: v => Core.newLead(v) },
   action: { title: "Νέα ενέργεια / σχόλιο", ok: "Αποθήκευση", hint: "Καταγράφει ενέργεια και, προαιρετικά, ενημερώνει την πορεία του lead. Αφήστε κενή την περιγραφή για να αλλάξετε μόνο το lead.",
-    groups: [["Ενέργεια", [F("company", "Εταιρεία *", "company", { full: 1 }), F("year", "Χρονιά lead (κενό = τελευταία)", "leadyear"), F("date", "Ημερομηνία", "date"), sel("type", "Τύπος ενέργειας", "Τύπος ενέργειας"), sel("handler", "Χειριστής", "Χειριστής"), F("desc", "Περιγραφή *", "textarea", { full: 1 })]],
-      ["Ενημέρωση lead (μόνο ό,τι άλλαξε)", [sel("stage", "Νέα πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος"), sel("sponsor", "Νέα κατάσταση χορηγίας", "Χορηγία"), sel("reason", "Λόγος ακύρωσης", "Λόγος ακύρωσης"), sel("hall", "Hall", "Hall"), F("sqm", "Τ.μ.", "number"), sel("newhandler", "Νέος χειριστής lead", "Χειριστής")]]],
+    groups: [["Ενέργεια", [F("company", "Εταιρεία *", "company", { full: 1 }), F("year", "Χρονιά lead (κενό = τελευταία)", "leadyear"), F("date", "Ημερομηνία", "date"), sel("type", "Τύπος ενέργειας", "Τύπος ενέργειας"), sel("handler", "Ποιος την έκανε", "Χειριστής", { single: 1 }), F("desc", "Περιγραφή *", "textarea", { full: 1 })]],
+      ["Ενημέρωση lead (μόνο ό,τι άλλαξε)", [sel("stage", "Νέα πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος"), sel("sponsor", "Νέα κατάσταση χορηγίας", "Χορηγία"), sel("reason", "Λόγος ακύρωσης", "Λόγος ακύρωσης"), sel("hall", "Hall", "Hall"), F("sqm", "Τ.μ.", "number"), F("newhandler", "Αλλαγή χειριστών lead", "multi", { list: "Χειριστής", hint: "Αφήστε όλα ξετσέκαρτα για να μείνουν οι χειριστές ως έχουν." })]]],
     run: v => Core.newAction(v), live: actionInfo },
   contact: { title: "Νέα επαφή", ok: "Προσθήκη", hint: "«Ναι – αντί της παλιάς» = γίνεται η μόνη κύρια επαφή (οι παλιές γίνονται Όχι).",
     groups: [["", [F("company", "Εταιρεία *", "company", { full: 1 }), F("name", "Ονοματεπώνυμο *", "text"), F("role", "Θέση", "text"), F("phone", "Τηλέφωνο", "text"), F("email", "Email", "email"),
@@ -1362,19 +1364,25 @@ const FORMS = {
     run: v => Core.rename(String(Core.parseCode(v.company) || v.company), v.newName) },
   editE: { title: "Στοιχεία εταιρείας", ok: "Αποθήκευση", k: "E", groups: [["", [sel("Κλάδος", "Κλάδος", "Κλάδος"), F("Χώρα", "Χώρα", "country"), sel("FG/RET", "FG/RET", "FG/RET"), sel("Tellody", "Tellody", "Tellody"), F("Σύνδεσμος αρχείων", "Σύνδεσμος αρχείων", "text", { full: 1 }), F("Αναγνωριστικό List", "Αναγνωριστικό List", "text")]]] },
   editL: { title: "Επεξεργασία lead", ok: "Αποθήκευση", k: "L", hint: "Για αλλαγή πορείας με καταγραφή στο ιστορικό, προτιμήστε «+ Ενέργεια».",
-    groups: [["", [sel("Προέλευση", "Προέλευση", "Προέλευση"), sel("Χειριστής", "Χειριστής", "Χειριστής"), sel("Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος"), sel("Χορηγία", "Χορηγία", "Χορηγία"),
+    groups: [["", [sel("Προέλευση", "Προέλευση", "Προέλευση"), F("Χειριστής", "Χειριστής (ένας ή περισσότεροι)", "multi", { list: "Χειριστής" }), sel("Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος"), sel("Χορηγία", "Χορηγία", "Χορηγία"),
       sel("Λόγος ακύρωσης", "Λόγος ακύρωσης", "Λόγος ακύρωσης"), sel("Hall", "Hall", "Hall"), F("Αριθμός Stand", "Αριθμός Stand", "text"), F("Τ.μ.", "Τ.μ.", "number"), F("Σημειώσεις", "Σημειώσεις", "textarea", { full: 1 }), F("Αρχικά σχόλια List", "Αρχικά σχόλια List", "textarea", { full: 1 })]]] },
   editP: { title: "Επεξεργασία επαφής", ok: "Αποθήκευση", k: "P", groups: [["", [F("Ονοματεπώνυμο", "Ονοματεπώνυμο", "text"), F("Θέση", "Θέση", "text"), F("Τηλέφωνο", "Τηλέφωνο", "text"), F("Email", "Email", "email"),
     F("Κύρια επαφή", "Κύρια επαφή", "select", { opts: ["Ναι", "Όχι"] }), F("Σημειώσεις", "Σημειώσεις", "textarea", { full: 1 })]]] },
-  editA: { title: "Αλλαγή ενέργειας", ok: "Αποθήκευση", k: "A", groups: [["", [F("Ημερομηνία", "Ημερομηνία", "date"), sel("Τύπος ενέργειας", "Τύπος ενέργειας", "Τύπος ενέργειας"), sel("Χειριστής", "Χειριστής", "Χειριστής"), F("Χρονιά lead", "Χρονιά lead", "number"), F("Περιγραφή", "Περιγραφή", "textarea", { full: 1 })]]] }
+  editA: { title: "Αλλαγή ενέργειας", ok: "Αποθήκευση", k: "A", groups: [["", [F("Ημερομηνία", "Ημερομηνία", "date"), sel("Τύπος ενέργειας", "Τύπος ενέργειας", "Τύπος ενέργειας"), sel("Χειριστής", "Ποιος την έκανε", "Χειριστής", { single: 1 }), F("Χρονιά lead", "Χρονιά lead", "number"), F("Περιγραφή", "Περιγραφή", "textarea", { full: 1 })]]] }
 };
 let cur = null;
 function fieldHTML(f, val) {
   const id = "f_" + f.name.replace(/[^\w]/g, "_") + "_" + Math.random().toString(36).slice(2, 6);
   const nm = `name="${esc(f.name)}" id="${id}"`, cls = f.full ? ' class="full"' : "";
   let inp;
+  if (f.type === "multi") {   // πολλαπλή επιλογή (χειριστές): αποθηκεύεται ως «Α, Β»
+    const cur = String(val ?? "").split(",").map(x => x.trim()).filter(Boolean);
+    const opts = list(f.list).filter(h => !h.includes(","));
+    cur.forEach(c => { if (!opts.some(o => Core.norm(o) === Core.norm(c))) opts.push(c); });
+    return `<label class="full" style="gap:3px">${esc(f.label)}<span class="mchk" data-multi="${esc(f.name)}">${opts.map(o => `<label><input type="checkbox" value="${esc(o)}"${cur.some(c => Core.norm(c) === Core.norm(o)) ? " checked" : ""}>${esc(o)}</label>`).join("")}</span><input type="hidden" name="${esc(f.name)}" value="${esc(cur.join(", "))}">${f.hint ? `<span style="font-size:12px">${esc(f.hint)}</span>` : ""}</label>`;
+  }
   if (f.type === "select") {
-    const vals = f.opts || list(f.list); const all = val !== "" && val !== undefined && !vals.map(String).includes(String(val)) ? [...vals, val] : vals;
+    const vals = f.opts || (f.single ? list(f.list).filter(h => !h.includes(",")) : list(f.list)); const all = val !== "" && val !== undefined && !vals.map(String).includes(String(val)) ? [...vals, val] : vals;
     inp = `<select ${nm}>${opt(all, val, f.nofirst ? undefined : "—")}</select>`;
   } else if (f.type === "textarea") inp = `<textarea ${nm}>${esc(val)}</textarea>`;
   else if (f.type === "company") inp = `<input ${nm} list="dl-co" autocomplete="off" value="${esc(val)}">`;
@@ -1418,6 +1426,7 @@ function openForm(kind, pre) {
   frm.onchange = live;
   live();
   setupCountry(frm);
+  for (const m of frm.querySelectorAll(".mchk")) m.onchange = () => { m.parentElement.querySelector(`input[type=hidden][name="${m.dataset.multi}"]`).value = [...m.querySelectorAll("input:checked")].map(x => x.value).join(", "); };
   frm.onsubmit = e => { e.preventDefault(); submitForm(); };
   $("#mClose").onclick = closeForm; $("#mCancel").onclick = closeForm; $("#mOk").onclick = submitForm;
   setTimeout(() => { const first = frm.querySelector("input:not([readonly]),select,textarea"); if (first && !pre.company) first.focus(); else { const d = frm.querySelector('[name="desc"],[name="name"],[name="newName"]'); if (d) d.focus(); } }, 30);
