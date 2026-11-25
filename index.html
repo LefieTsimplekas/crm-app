@@ -122,6 +122,13 @@ td.pre{white-space:pre-line;min-width:280px}
 .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:18px}
 .lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .lists .card ol{margin:6px 0 8px;padding-left:20px;font-size:14px}
+.lv li{padding:2px 0;position:relative;border-radius:5px}.lv li:hover{background:var(--bg2)}
+.lv .lb{display:none;gap:2px;position:absolute;right:0;top:50%;transform:translateY(-50%);background:var(--bg2);padding:1px 2px;border-radius:5px}
+.lv li:hover .lb,.lv li:focus-within .lb{display:inline-flex}
+@media(hover:none){.lv .lb{display:inline-flex;position:static;transform:none;background:none;margin-left:4px;vertical-align:middle}}
+.lv .lb button{border:1px solid var(--line);background:var(--card);border-radius:5px;width:24px;height:22px;font-size:12px;padding:0;line-height:1}
+.lv .lb button.danger{background:var(--red);color:#fff;border-color:var(--red);width:auto;padding:0 6px}
+.lv input{min-height:28px;padding:2px 6px;font-size:13px;width:100%;margin:2px 0}
 .pop{position:absolute;z-index:15;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-height:60vh;overflow:auto;width:300px}
 .pop div{display:flex;align-items:center;gap:6px;padding:2px 0}
 .pop label{flex:1;display:flex;gap:6px;align-items:center}
@@ -406,6 +413,76 @@ const Core = (() => {
     return { msg: `Αφαιρέθηκε «${value}» από τη λίστα «${header}».` };
   }
 
+  // ---------- επεξεργασία υπαρχουσών τιμών λίστας ----------
+  // ποιες στήλες χρησιμοποιούν κάθε λίστα (για να ακολουθούν οι εγγραφές τη μετονομασία)
+  const LISTUSE = {
+    "Πορεία ενδιαφέροντος": [["L", "Πορεία ενδιαφέροντος"]], "Χορηγία": [["L", "Χορηγία"]], "Προέλευση": [["L", "Προέλευση"]],
+    "Χειριστής": [["L", "Χειριστής"], ["A", "Χειριστής"]], "Κλάδος": [["E", "Κλάδος"]], "Hall": [["L", "Hall"]],
+    "FG/RET": [["E", "FG/RET"]], "Tellody": [["E", "Tellody"]], "Τύπος ενέργειας": [["A", "Τύπος ενέργειας"]], "Λόγος ακύρωσης": [["L", "Λόγος ακύρωσης"]]
+  };
+  // θέσεις με ειδική σημασία: δεν σβήνονται και δεν μετακινούνται
+  const FIXED = { "Πορεία ενδιαφέροντος": [5, 6], "Χορηγία": [0, 1, 2, 3] };
+  const isFixed = (list, pos) => (FIXED[list] || []).includes(pos);
+  const canMove = list => !FIXED[list];
+  const handlerParts = v => String(v ?? "").split(",").map(x => x.trim()).filter(Boolean);
+  function listUsage(list, value) {
+    let n = 0;
+    for (const [k, h] of LISTUSE[list] || []) for (const r of rows[k]) {
+      const v = r.v[h];
+      if (list === "Χειριστής" ? handlerParts(v).some(x => norm(x) === norm(value)) : norm(v) === norm(value)) n++;
+    }
+    return n;
+  }
+  async function renameListValue(list, pos, newValue) {
+    const L = S.lists[list]; const old = L && L[pos];
+    const nv = String(newValue || "").trim().replace(/\s+/g, " ");
+    if (!old) throw new Error("Η τιμή δεν βρέθηκε – ανανεώστε τη σελίδα.");
+    if (!nv) throw new Error("Η νέα τιμή δεν μπορεί να είναι κενή.");
+    if (nv === old) return { msg: "Δεν άλλαξε τίποτα." };
+    if (L.some((v, i) => i !== pos && norm(v) === norm(nv))) throw new Error(`Το «${nv}» υπάρχει ήδη στη λίστα «${list}».`);
+    ok(await sb.from("lists").update({ value: nv }).eq("list_name", list).eq("position", pos));
+    putRow("lists", { list_name: list, position: pos, value: nv });
+    if (list === "Χειριστής") for (let i = 0; i < L.length; i++) {   // και οι κοινές τιμές της λίστας, π.χ. «Α, Β»
+      if (i === pos || !handlerParts(L[i]).some(x => norm(x) === norm(old)) || handlerParts(L[i]).length < 2) continue;
+      const v = handlerParts(L[i]).map(x => norm(x) === norm(old) ? nv : x).join(", ");
+      ok(await sb.from("lists").update({ value: v }).eq("list_name", list).eq("position", i)); L[i] = v;
+    }
+    let changed = 0;
+    for (const [k, h] of LISTUSE[list] || []) {
+      const t = MAP[k].table, col = MAP[k].cols[h];
+      if (list === "Χειριστής") {   // και τα «Α, Β» (κοινός χειρισμός)
+        for (const r of rows[k].filter(r => handlerParts(r.v[h]).some(x => norm(x) === norm(old)))) {
+          const v = handlerParts(r.v[h]).map(x => norm(x) === norm(old) ? nv : x).join(", ");
+          const rs = ok(await sb.from(t).update({ [col]: v }).eq(MAP[k].id, r.id).select()); (rs || []).forEach(x => putRow(t, x)); changed++;
+        }
+      } else {
+        const rs = ok(await sb.from(t).update({ [col]: nv }).eq(col, old).select()); (rs || []).forEach(x => putRow(t, x)); changed += (rs || []).length;
+      }
+    }
+    version++;
+    return { msg: `«${old}» → «${nv}»` + (changed ? ` · ενημερώθηκαν και ${changed} εγγραφές που το χρησιμοποιούσαν.` : ".") };
+  }
+  async function deleteListValue(list, pos) {
+    const L = S.lists[list]; const old = L && L[pos];
+    if (!old) throw new Error("Η τιμή δεν βρέθηκε – ανανεώστε τη σελίδα.");
+    if (isFixed(list, pos)) throw new Error(`Η τιμή «${old}» έχει ειδική σημασία για τα στατιστικά και δεν σβήνεται· μπορείτε να τη μετονομάσετε.`);
+    ok(await sb.from("lists").delete().eq("list_name", list).eq("position", pos));
+    L[pos] = ""; version++;
+    const n = listUsage(list, old);
+    return { msg: `Αφαιρέθηκε «${old}» από τη λίστα «${list}».` + (n ? ` Οι ${n} εγγραφές που το έχουν το κρατούν όπως είναι.` : "") };
+  }
+  async function moveListValue(list, pos, dir) {
+    if (!canMove(list)) throw new Error(`Στη λίστα «${list}» η σειρά έχει ειδική σημασία και δεν αλλάζει.`);
+    const L = S.lists[list]; let j = pos + dir;
+    while (j >= 0 && j < 25 && isBlank(L[j])) j += dir;
+    if (j < 0 || j >= 25) return { msg: "" };
+    const a = L[pos], b = L[j];
+    ok(await sb.from("lists").update({ value: b }).eq("list_name", list).eq("position", pos));
+    ok(await sb.from("lists").update({ value: a }).eq("list_name", list).eq("position", j));
+    L[pos] = b; L[j] = a; version++;
+    return { msg: "" };
+  }
+
   // ---------- 7. Μετονομασία ----------
   async function rename(input, newName) {
     const nn = String(newName || "").trim().replace(/\s+/g, " ");
@@ -474,7 +551,7 @@ const Core = (() => {
     init(client) { sb = client; }, load, applyChange,
     async logUsage(bytes) { const { error } = await sb.rpc("log_usage", { p_bytes: Math.round(bytes) }); return !error; },
     async monthUsage(fromISO) { const { data, error } = await sb.from("usage_log").select("*").gte("day", fromISO); return error ? null : data; },
-    async usage() { const { data, error } = await sb.rpc("db_usage"); if (error) return null; return typeof data === "string" ? JSON.parse(data) : data; }, derive, newLead, newAction, newContact, remove, deletePreview, addListValue, removeListValue, rename, editRow, removeRow, row,
+    async usage() { const { data, error } = await sb.rpc("db_usage"); if (error) return null; return typeof data === "string" ? JSON.parse(data) : data; }, derive, newLead, newAction, newContact, remove, deletePreview, addListValue, removeListValue, renameListValue, deleteListValue, moveListValue, listUsage, isFixed, canMove, rename, editRow, removeRow, row,
     findCompany, parseCode, today, norm, latestYear, get S() { return S; }, get version() { return version; }, get rows() { return rows; }
   };
 })();
@@ -792,8 +869,8 @@ function settingsHTML() {
   <div class="sec"><h3>Αλλαγή κωδικού</h3><div class="card"><div class="fg">
     <label>Νέος κωδικός<input id="pw1" type="password" autocomplete="new-password"></label><label>Ξανά<input id="pw2" type="password" autocomplete="new-password"></label></div>
     <button class="btn" id="pwBtn" style="margin-top:10px">Αλλαγή κωδικού</button></div></div></div>
-  <div class="sec"><h3>Λίστες επιλογών</h3><p class="muted" style="font-size:14px;margin-top:0">Στην «Πορεία ενδιαφέροντος» η 6η τιμή σημαίνει επιτυχία και η 7η απώλεια· στη «Χορηγία» οι 2 πρώτες = σε εξέλιξη, η 3η = κλεισμένη. Οι νέες τιμές μπαίνουν στην πρώτη κενή θέση και τις βλέπουν αμέσως όλοι.</p>
-  <div class="lists">${Object.keys(L).filter(h => h !== "Ναι/Όχι").map(h => `<div class="card"><b>${esc(h)}</b><ol>${L[h].filter(v => String(v).trim() !== "").map(v => `<li>${esc(v)}</li>`).join("")}</ol>
+  <div class="sec"><h3>Λίστες επιλογών</h3><p class="muted" style="font-size:14px;margin-top:0">Στην «Πορεία ενδιαφέροντος» η 6η τιμή σημαίνει επιτυχία και η 7η απώλεια· στη «Χορηγία» οι 2 πρώτες = σε εξέλιξη, η 3η = κλεισμένη. Οι νέες τιμές μπαίνουν στην πρώτη κενή θέση και τις βλέπουν αμέσως όλοι. Η μετονομασία (✎) αλλάζει την τιμή και σε όλες τις εγγραφές που τη χρησιμοποιούν· η διαγραφή (✕) τη βγάζει μόνο από τη λίστα. Οι τιμές με ειδική σημασία δεν σβήνονται.</p>
+  <div class="lists">${Object.keys(L).filter(h => h !== "Ναι/Όχι").map(h => `<div class="card"><b>${esc(h)}</b><ol class="lv">${L[h].map((v, i) => [v, i]).filter(([v]) => String(v).trim() !== "").map(([v, i]) => `<li data-l="${esc(h)}" data-p="${i}"><span class="t">${esc(v)}</span><span class="lb">${Core.canMove(h) ? `<button data-lm="-1" title="Πάνω" aria-label="Πάνω">↑</button><button data-lm="1" title="Κάτω" aria-label="Κάτω">↓</button>` : ""}<button data-le title="Μετονομασία" aria-label="Μετονομασία">✎</button>${Core.isFixed(h, i) ? "" : `<button data-ld title="Διαγραφή" aria-label="Διαγραφή">✕</button>`}</span></li>`).join("")}</ol>
     <div style="display:flex;gap:6px"><input data-listin="${esc(h)}" placeholder="νέα τιμή" style="flex:1;min-height:34px;padding:4px 8px"><button class="btn sm" data-listadd="${esc(h)}">Προσθήκη</button></div></div>`).join("")}</div></div>`;
 }
 
@@ -814,6 +891,8 @@ function bindMain(partial) {
     if (e.target.id === "addH") { busy(e.target, () => Core.addListValue("Χειριστής", $("#newH").value)); return; }
     if (e.target.id === "pwBtn") { changePw(); return; }
     const la = e.target.closest("[data-listadd]"); if (la) { const h = la.dataset.listadd; const inp = [...document.querySelectorAll("[data-listin]")].find(i => i.dataset.listin === h); busy(la, () => Core.addListValue(h, inp.value)); return; }
+    const li = e.target.closest("li[data-l]");
+    if (li && e.target.closest("button")) return listItemAction(li, e.target.closest("button"));
     const tr = e.target.closest("tr[data-code]"); if (tr) openDrawer(+tr.dataset.code);
   };
   const on = (id, ev, fn) => { const el = $("#" + id); if (el) el[ev] = fn; };
@@ -874,6 +953,28 @@ function rerender(focusId) {
   $("#view").innerHTML = views[ui.view](); bindMain(true);
   if (ui.view === "settings") loadUsage();
   if (focusId) { const el = $("#" + focusId); el.focus(); if (pos !== null) el.setSelectionRange(pos, pos); }
+}
+function listItemAction(li, b) {
+  const list = li.dataset.l, pos = +li.dataset.p, val = (Core.S.lists[list] || [])[pos];
+  if (b.dataset.lm) return busy(b, () => Core.moveListValue(list, pos, +b.dataset.lm));
+  if (b.dataset.ld !== undefined) {
+    if (!b.dataset.sure) {
+      const n = Core.listUsage(list, val);
+      b.dataset.sure = "1"; b.classList.add("danger"); b.textContent = n ? `Σβήσιμο; (σε ${n} εγγρ.)` : "Σβήσιμο;";
+      setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.classList.remove("danger"); b.textContent = "✕"; } }, 4000);
+      return;
+    }
+    return busy(b, () => Core.deleteListValue(list, pos));
+  }
+  if (b.dataset.le !== undefined) {
+    const n = Core.listUsage(list, val);
+    li.innerHTML = `<input value="${esc(val)}" aria-label="Νέα τιμή"><span style="display:flex;gap:4px;flex-wrap:wrap;align-items:center"><button class="btn sm pri" data-ls>Αποθήκευση</button><button class="btn sm" data-lc>Άκυρο</button>${n ? `<span class="muted" style="font-size:12px">θα αλλάξει και σε ${n} εγγραφές</span>` : ""}</span>`;
+    const inp = li.querySelector("input"); inp.focus(); inp.select();
+    const save = () => busy(li.querySelector("[data-ls]"), () => Core.renameListValue(list, pos, inp.value));
+    inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); save(); } if (e.key === "Escape") { e.stopPropagation(); rerender(); } };
+    li.querySelector("[data-ls]").onclick = e => { e.stopPropagation(); save(); };
+    li.querySelector("[data-lc]").onclick = e => { e.stopPropagation(); rerender(); };
+  }
 }
 async function busy(btn, fn) {
   btn.disabled = true;
