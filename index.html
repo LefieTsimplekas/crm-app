@@ -472,6 +472,8 @@ const Core = (() => {
 
   return {
     init(client) { sb = client; }, load, applyChange,
+    async logUsage(bytes) { const { error } = await sb.rpc("log_usage", { p_bytes: Math.round(bytes) }); return !error; },
+    async monthUsage(fromISO) { const { data, error } = await sb.from("usage_log").select("*").gte("day", fromISO); return error ? null : data; },
     async usage() { const { data, error } = await sb.rpc("db_usage"); if (error) return null; return typeof data === "string" ? JSON.parse(data) : data; }, derive, newLead, newAction, newContact, remove, deletePreview, addListValue, removeListValue, rename, editRow, removeRow, row,
     findCompany, parseCode, today, norm, latestYear, get S() { return S; }, get version() { return version; }, get rows() { return rows; }
   };
@@ -507,7 +509,26 @@ function toast(msg, err) { const t = $("#toast"); t.textContent = (err ? "⚠️
 // ---------- σύνδεση με τη βάση ----------
 const SUPA_URL = "https://qyhkdyewdqrbreebmacn.supabase.co";
 const SUPA_KEY = "sb_publishable_OvMExg_PKnJfSh7CP8hIsQ_Mg0oowyG";
-const sb = window.supabase ? window.supabase.createClient(SUPA_URL, SUPA_KEY) : null;
+// μέτρηση κίνησης: πόσα bytes κατεβάζει αυτή η εφαρμογή από το Supabase (εκτίμηση egress)
+let pendingBytes = 0, usageLogOff = false;
+const countingFetch = async (input, init) => {
+  const res = await fetch(input, init);
+  try {
+    const len = res.headers.get("content-length");
+    if (len) pendingBytes += Number(len) + 300;
+    else res.clone().arrayBuffer().then(b => { pendingBytes += b.byteLength + 300; }).catch(() => {});
+  } catch (e) {}
+  return res;
+};
+async function flushUsage() {
+  if (!ui.loaded || usageLogOff || pendingBytes < 1) return;
+  const b = pendingBytes; pendingBytes = 0;
+  const ok = await Core.logUsage(b).catch(() => false);
+  if (!ok) { usageLogOff = true; }   // ο πίνακας δεν έχει στηθεί ακόμα: σταματάμε σιωπηλά
+}
+setInterval(flushUsage, 60000);
+document.addEventListener("visibilitychange", () => { if (document.hidden) flushUsage(); });
+const sb = window.supabase ? window.supabase.createClient(SUPA_URL, SUPA_KEY, { global: { fetch: countingFetch } }) : null;
 if (sb) Core.init(sb);
 let channel = null, reloadT = 0;
 async function startApp(session) {
@@ -523,7 +544,7 @@ async function startApp(session) {
   if (!channel) {
     let wasDown = false;
     channel = sb.channel("crm-live")
-      .on("postgres_changes", { event: "*", schema: "public" }, p => { if (Core.applyChange(p)) { clearTimeout(reloadT); reloadT = setTimeout(() => { refreshDatalist(); rerenderAll(); }, 250); } })
+      .on("postgres_changes", { event: "*", schema: "public" }, p => { try { pendingBytes += JSON.stringify(p).length + 200; } catch (e) {} if (Core.applyChange(p)) { clearTimeout(reloadT); reloadT = setTimeout(() => { refreshDatalist(); rerenderAll(); }, 250); } })
       .subscribe(st => {
         ui.live = st === "SUBSCRIBED" ? "on" : ""; const d = $("#liveDot"); if (d) d.dataset.on = ui.live;
         if (st === "SUBSCRIBED") { if (wasDown) reloadData(); wasDown = false; }   // μετά από διακοπή: πλήρης συγχρονισμός
@@ -766,7 +787,8 @@ function settingsHTML() {
     <div class="fg"><label class="full">Ονοματεπώνυμο (όπως θα φαίνεται στη στήλη Χειριστής)<input id="newH" placeholder="π.χ. Maria Papadopoulou"></label></div>
     <button class="btn pri" id="addH" style="margin-top:10px">Προσθήκη χειριστή</button>
     <p class="muted" style="font-size:13px;margin-bottom:0">Για να μπαίνει στην εφαρμογή, δημιουργήστε του και λογαριασμό: Supabase → Authentication → Users → Add user.</p></div></div>
-  <div class="sec"><h3>Όρια Supabase (δωρεάν πλάνο)</h3><div class="card" id="usage"><span class="muted">Φόρτωση…</span></div></div>
+  <div class="sec"><h3>Όρια Supabase (δωρεάν πλάνο)</h3><div class="card" id="usage"><span class="muted">Φόρτωση…</span></div>
+    <div class="card" id="traffic"><span class="muted">Φόρτωση…</span></div></div>
   <div class="sec"><h3>Αλλαγή κωδικού</h3><div class="card"><div class="fg">
     <label>Νέος κωδικός<input id="pw1" type="password" autocomplete="new-password"></label><label>Ξανά<input id="pw2" type="password" autocomplete="new-password"></label></div>
     <button class="btn" id="pwBtn" style="margin-top:10px">Αλλαγή κωδικού</button></div></div></div>
@@ -780,7 +802,7 @@ function bindMain(partial) {
   const V = $("#view");
   if (!partial) {
     $("#exportBtn").onclick = exportExcel;
-    $("#logoutBtn").onclick = async () => { await sb.auth.signOut(); };
+    $("#logoutBtn").onclick = async () => { await flushUsage(); await sb.auth.signOut(); };
     document.querySelectorAll("nav [data-view]").forEach(b => b.onclick = () => { ui.view = b.dataset.view; render(); });
     if (ui.view === "settings") loadUsage();
     document.querySelectorAll(".acts [data-form]").forEach(b => b.onclick = () => openForm(b.dataset.form, {}));
@@ -809,7 +831,30 @@ function bindMain(partial) {
   on("sO", "onchange", e => { ui.orange = Math.max(1, +e.target.value || 7); LS.set("orange", ui.orange); });
   on("sR", "onchange", e => { ui.red = Math.max(1, +e.target.value || 21); LS.set("red", ui.red); });
 }
+async function loadTraffic() {
+  const box = $("#traffic"); if (!box) return;
+  await flushUsage();
+  const now = new Date(), first = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const rows = await Core.monthUsage(first).catch(() => null);
+  if (!$("#traffic")) return;
+  if (!rows) { box.innerHTML = `<p class="muted" style="margin:0;font-size:13px">Η μέτρηση κίνησης δεν είναι ενεργή ακόμα: τρέξτε μία φορά το <b>db/usage_log.sql</b> στο SQL Editor του Supabase.</p>`; return; }
+  const MB = 1048576, LIM = 5 * 1024 * MB, tot = rows.reduce((a, r) => a + Number(r.bytes), 0), pct = Math.min(100, 100 * tot / LIM);
+  const col = pct > 80 ? "var(--red)" : pct > 60 ? "var(--amb)" : "var(--brand2)";
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Athens" });
+  const byUser = {}; rows.forEach(r => byUser[r.user_email] = (byUser[r.user_email] || 0) + Number(r.bytes));
+  const tday = rows.filter(r => String(r.day).slice(0, 10) === today).reduce((a, r) => a + Number(r.bytes), 0);
+  const f = b => b >= 1024 * MB ? (b / 1024 / MB).toFixed(2) + " GB" : (b / MB).toFixed(1) + " MB";
+  const since = rows.length ? rows.map(r => String(r.day).slice(0, 10)).sort()[0] : "";
+  const startDay = since && since > first ? Number(since.slice(8, 10)) : 1;   // αν η μέτρηση ξεκίνησε μέσα στον μήνα
+  const days = Math.max(1, now.getDate() - startDay + 1), dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(), proj = tot / days * (dim - startDay + 1);
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><b>Κίνηση αυτού του μήνα (εκτίμηση)</b><span>${f(tot)} από 5 GB (${pct.toFixed(1)}%)</span></div>
+    <div class="bar" style="height:12px"><i style="width:${Math.max(pct, 0.5)}%;background:${col}"></i></div>
+    <div class="grid" style="margin-top:10px"><div><span>Σήμερα</span>${f(tday)}</div><div><span>Πρόβλεψη τέλους μήνα</span>${f(proj)}</div>
+    ${Object.entries(byUser).sort((a, b) => b[1] - a[1]).map(([u, b]) => `<div><span>${esc(u)}</span>${f(b)}</div>`).join("")}</div>
+    <p class="muted" style="margin:10px 0 0;font-size:12.5px">Μετρά ό,τι κατεβάζει η εφαρμογή${since && since > first ? ` (από ${since.split("-").reverse().join("/")})` : ""}. Δεν μετρά ό,τι κάνετε απευθείας μέσα στο Supabase, και ο κύκλος χρέωσης του Supabase μπορεί να μην ξεκινά την 1η του μήνα· τα επίσημα νούμερα είναι στο Supabase → Usage.</p>`;
+}
 async function loadUsage() {
+  loadTraffic();
   const box = $("#usage"); if (!box) return;
   const u = await Core.usage().catch(() => null);
   if (!$("#usage")) return;
