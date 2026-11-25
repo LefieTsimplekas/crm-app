@@ -54,6 +54,9 @@ textarea{min-height:80px;resize:vertical}
 .kpi span{font-size:13px;color:var(--mute)}
 .kpi.r{border-color:var(--red)}.kpi.r b{color:var(--red)}.kpi.a b{color:var(--amb)}.kpi.g b{color:var(--grn)}
 .pipe{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+th.so{cursor:pointer;user-select:none}th.so:hover{background:var(--line)}th .si{font-size:10px;margin-left:4px;opacity:.35}th.so[data-dir] .si{opacity:1;color:var(--brand2)}
+.cbx{position:relative}.cbx-list{position:absolute;left:0;right:0;top:100%;z-index:40;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-height:260px;overflow:auto;margin-top:2px}
+.cbx-list div{padding:6px 10px;cursor:pointer;color:var(--ink);font-size:14px}.cbx-list div small{color:var(--mute);margin-left:6px}.cbx-list div[aria-selected=true],.cbx-list div:hover{background:var(--bg2)}
 .chip{border:1px solid var(--line);background:var(--bg2);border-radius:99px;padding:5px 12px;font-size:13px}
 .chip b{margin-left:6px}
 .chip[aria-pressed=true]{background:var(--brand);color:#fff;border-color:var(--brand)}
@@ -506,6 +509,7 @@ const Core = (() => {
     }
     await upd(k, id, toDb(k, ch, true));
   }
+  async function setFieldMany(k, changes) { for (const [id, h, v] of changes) await upd(k, id, toDb(k, { [h]: v })); return changes.length; }
   async function removeRow(k, id) { ok(await sb.from(MAP[k].table).delete().eq(MAP[k].id, id)); dropRow(MAP[k].table, { [MAP[k].id]: id }); version++; }
 
   // ---------- υπολογισμένα πεδία (ό,τι έκαναν οι τύποι του Excel) ----------
@@ -551,13 +555,224 @@ const Core = (() => {
     init(client) { sb = client; }, load, applyChange,
     async logUsage(bytes) { const { error } = await sb.rpc("log_usage", { p_bytes: Math.round(bytes) }); return !error; },
     async monthUsage(fromISO) { const { data, error } = await sb.from("usage_log").select("*").gte("day", fromISO); return error ? null : data; },
-    async usage() { const { data, error } = await sb.rpc("db_usage"); if (error) return null; return typeof data === "string" ? JSON.parse(data) : data; }, derive, newLead, newAction, newContact, remove, deletePreview, addListValue, removeListValue, renameListValue, deleteListValue, moveListValue, listUsage, isFixed, canMove, rename, editRow, removeRow, row,
+    async usage() { const { data, error } = await sb.rpc("db_usage"); if (error) return null; return typeof data === "string" ? JSON.parse(data) : data; }, derive, newLead, newAction, newContact, remove, deletePreview, addListValue, removeListValue, renameListValue, deleteListValue, moveListValue, listUsage, isFixed, canMove, rename, editRow, removeRow, row, setFieldMany,
     findCompany, parseCode, today, norm, latestYear, get S() { return S; }, get version() { return version; }, get rows() { return rows; }
   };
 })();
 
 </script>
 <script>
+// Χώρες: «Αγγλικά|Ελληνικά|άλλες ονομασίες…». Αποθηκεύεται το αγγλικό όνομα.
+const COUNTRIES_RAW = `Afghanistan|Αφγανιστάν
+Albania|Αλβανία
+Algeria|Αλγερία
+Andorra|Ανδόρα
+Angola|Αγκόλα
+Antigua and Barbuda|Αντίγκουα και Μπαρμπούντα
+Argentina|Αργεντινή
+Armenia|Αρμενία
+Australia|Αυστραλία
+Austria|Αυστρία
+Azerbaijan|Αζερμπαϊτζάν
+Bahamas|Μπαχάμες
+Bahrain|Μπαχρέιν
+Bangladesh|Μπανγκλαντές
+Barbados|Μπαρμπάντος
+Belarus|Λευκορωσία
+Belgium|Βέλγιο
+Belize|Μπελίζ
+Benin|Μπενίν
+Bhutan|Μπουτάν
+Bolivia|Βολιβία
+Bosnia and Herzegovina|Βοσνία και Ερζεγοβίνη|Bosnia
+Botswana|Μποτσουάνα
+Brazil|Βραζιλία
+Brunei|Μπρουνέι
+Bulgaria|Βουλγαρία
+Burkina Faso|Μπουρκίνα Φάσο
+Burundi|Μπουρούντι
+Cambodia|Καμπότζη
+Cameroon|Καμερούν
+Canada|Καναδάς
+Cape Verde|Πράσινο Ακρωτήριο
+Central African Republic|Κεντροαφρικανική Δημοκρατία
+Chad|Τσαντ
+Chile|Χιλή
+China|Κίνα|PRC|P.R. China
+Colombia|Κολομβία
+Comoros|Κομόρες
+Congo|Κονγκό
+Costa Rica|Κόστα Ρίκα
+Croatia|Κροατία
+Cuba|Κούβα
+Cyprus|Κύπρος
+Czech Republic|Τσεχία|Czechia|Τσεχική Δημοκρατία
+Democratic Republic of the Congo|Λαϊκή Δημοκρατία του Κονγκό|DR Congo
+Denmark|Δανία
+Djibouti|Τζιμπουτί
+Dominica|Δομινίκα
+Dominican Republic|Δομινικανή Δημοκρατία
+Ecuador|Ισημερινός
+Egypt|Αίγυπτος
+El Salvador|Ελ Σαλβαδόρ
+Equatorial Guinea|Ισημερινή Γουινέα
+Eritrea|Ερυθραία
+Estonia|Εσθονία
+Eswatini|Εσουατίνι|Swaziland
+Ethiopia|Αιθιοπία
+Fiji|Φίτζι
+Finland|Φινλανδία
+France|Γαλλία
+Gabon|Γκαμπόν
+Gambia|Γκάμπια
+Georgia|Γεωργία
+Germany|Γερμανία|Deutschland
+Ghana|Γκάνα
+Greece|Ελλάδα|Ελλάς|Hellas|GR
+Grenada|Γρενάδα
+Guatemala|Γουατεμάλα
+Guinea|Γουινέα
+Guinea-Bissau|Γουινέα-Μπισάου
+Guyana|Γουιάνα
+Haiti|Αϊτή
+Honduras|Ονδούρα
+Hong Kong|Χονγκ Κονγκ
+Hungary|Ουγγαρία
+Iceland|Ισλανδία
+India|Ινδία
+Indonesia|Ινδονησία
+Iran|Ιράν
+Iraq|Ιράκ
+Ireland|Ιρλανδία
+Israel|Ισραήλ
+Italy|Ιταλία
+Ivory Coast|Ακτή Ελεφαντοστού|Côte d'Ivoire
+Jamaica|Τζαμάικα
+Japan|Ιαπωνία
+Jordan|Ιορδανία
+Kazakhstan|Καζακστάν
+Kenya|Κένυα
+Kiribati|Κιριμπάτι
+Kosovo|Κοσσυφοπέδιο|Κόσοβο
+Kuwait|Κουβέιτ
+Kyrgyzstan|Κιργιστάν
+Laos|Λάος
+Latvia|Λετονία
+Lebanon|Λίβανος
+Lesotho|Λεσότο
+Liberia|Λιβερία
+Libya|Λιβύη
+Liechtenstein|Λιχτενστάιν
+Lithuania|Λιθουανία
+Luxembourg|Λουξεμβούργο
+Macau|Μακάο
+Madagascar|Μαδαγασκάρη
+Malawi|Μαλάουι
+Malaysia|Μαλαισία
+Maldives|Μαλδίβες
+Mali|Μάλι
+Malta|Μάλτα
+Marshall Islands|Νήσοι Μάρσαλ
+Mauritania|Μαυριτανία
+Mauritius|Μαυρίκιος
+Mexico|Μεξικό
+Micronesia|Μικρονησία
+Moldova|Μολδαβία
+Monaco|Μονακό
+Mongolia|Μογγολία
+Montenegro|Μαυροβούνιο
+Morocco|Μαρόκο
+Mozambique|Μοζαμβίκη
+Myanmar|Μιανμάρ|Burma
+Namibia|Ναμίμπια
+Nauru|Ναουρού
+Nepal|Νεπάλ
+Netherlands|Ολλανδία|Κάτω Χώρες|Holland|The Netherlands
+New Zealand|Νέα Ζηλανδία
+Nicaragua|Νικαράγουα
+Niger|Νίγηρας
+Nigeria|Νιγηρία
+North Korea|Βόρεια Κορέα
+North Macedonia|Βόρεια Μακεδονία|Macedonia|FYROM|Σκόπια
+Norway|Νορβηγία
+Oman|Ομάν
+Pakistan|Πακιστάν
+Palau|Παλάου
+Palestine|Παλαιστίνη
+Panama|Παναμάς
+Papua New Guinea|Παπούα Νέα Γουινέα
+Paraguay|Παραγουάη
+Peru|Περού
+Philippines|Φιλιππίνες
+Poland|Πολωνία
+Portugal|Πορτογαλία
+Qatar|Κατάρ
+Romania|Ρουμανία
+Russia|Ρωσία|Russian Federation
+Rwanda|Ρουάντα
+Saint Kitts and Nevis|Άγιος Χριστόφορος και Νέβις
+Saint Lucia|Αγία Λουκία
+Saint Vincent and the Grenadines|Άγιος Βικέντιος και Γρεναδίνες
+Samoa|Σαμόα
+San Marino|Άγιος Μαρίνος|Σαν Μαρίνο
+Sao Tome and Principe|Σάο Τομέ και Πρίνσιπε
+Saudi Arabia|Σαουδική Αραβία
+Senegal|Σενεγάλη
+Serbia|Σερβία
+Seychelles|Σεϋχέλλες
+Sierra Leone|Σιέρα Λεόνε
+Singapore|Σιγκαπούρη
+Slovakia|Σλοβακία
+Slovenia|Σλοβενία
+Solomon Islands|Νήσοι Σολομώντα
+Somalia|Σομαλία
+South Africa|Νότια Αφρική
+South Korea|Νότια Κορέα|Korea|Republic of Korea
+South Sudan|Νότιο Σουδάν
+Spain|Ισπανία
+Sri Lanka|Σρι Λάνκα
+Sudan|Σουδάν
+Suriname|Σουρινάμ
+Sweden|Σουηδία
+Switzerland|Ελβετία
+Syria|Συρία
+Taiwan|Ταϊβάν
+Tajikistan|Τατζικιστάν
+Tanzania|Τανζανία
+Thailand|Ταϊλάνδη
+Timor-Leste|Ανατολικό Τιμόρ|East Timor
+Togo|Τόγκο
+Tonga|Τόνγκα
+Trinidad and Tobago|Τρινιντάντ και Τομπάγκο
+Tunisia|Τυνησία
+Turkey|Τουρκία|Türkiye|Turkiye
+Turkmenistan|Τουρκμενιστάν
+Tuvalu|Τουβαλού
+Uganda|Ουγκάντα
+Ukraine|Ουκρανία
+United Arab Emirates|Ηνωμένα Αραβικά Εμιράτα|UAE|ΗΑΕ
+United Kingdom|Ηνωμένο Βασίλειο|UK|Great Britain|Britain|England|Αγγλία|Μεγάλη Βρετανία|Scotland|Σκωτία|Wales|Ουαλία|Northern Ireland
+United States|Ηνωμένες Πολιτείες|USA|US|United States of America|ΗΠΑ|Αμερική
+Uruguay|Ουρουγουάη
+Uzbekistan|Ουζμπεκιστάν
+Vanuatu|Βανουάτου
+Vatican City|Βατικανό
+Venezuela|Βενεζουέλα
+Vietnam|Βιετνάμ|Viet Nam
+Yemen|Υεμένη
+Zambia|Ζάμπια
+Zimbabwe|Ζιμπάμπουε`;
+const COUNTRIES = COUNTRIES_RAW.split("\n").map(l => { const p = l.split("|"); return { en: p[0], el: p[1], all: p }; });
+const fold = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/ς/g, "σ").trim();
+const COUNTRY_INDEX = new Map(); for (const c of COUNTRIES) for (const n of c.all) COUNTRY_INDEX.set(fold(n), c);
+const countryOf = v => COUNTRY_INDEX.get(fold(v)) || null;
+const countryLabel = v => { const c = countryOf(v); return c ? `${c.el} · ${c.en}` : String(v ?? ""); };
+function countrySearch(q) {
+  const f = fold(q); if (!f) return COUNTRIES.slice().sort((a, b) => a.el.localeCompare(b.el, "el"));
+  const score = c => { let best = 9; for (const n of c.all) { const x = fold(n); if (x === f) return 0; if (x.startsWith(f)) best = Math.min(best, 1); else if (x.split(/[\s-]+/).some(w => w.startsWith(f))) best = Math.min(best, 2); else if (x.includes(f)) best = Math.min(best, 3); } return best; };
+  return COUNTRIES.map(c => [score(c), c]).filter(([s]) => s < 9).sort((a, b) => a[0] - b[0] || a[1].el.localeCompare(b[1].el, "el")).map(x => x[1]);
+}
+
 {
 const $ = s => document.querySelector(s);
 const esc = v => String(v === null || v === undefined ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -691,7 +906,7 @@ function render() {
     <button class="btn" data-form="contact">+ Επαφή</button><button class="btn" data-form="del">Διαγραφή</button>
   </div>
   <main id="view">${({ track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML })[ui.view]()}</main>`;
-  bindMain();
+  bindMain(); applySorts($("#view"));
 }
 
 function welcomeHTML() {
@@ -752,13 +967,13 @@ function trackHTML() {
     <div class="kpi g"><b>${k.g}</b><span>Πρόσφατη επαφή</span></div>
     <div class="kpi"><b>${rows.length}</b><span>Σύνολο στη λίστα</span></div></div>
   <div class="pipe"><span class="muted" style="align-self:center;font-size:13px">Pipeline ${ui.year}:</span>${stages.map(s => `<button class="chip" data-stage="${esc(s)}" aria-pressed="${ui.stage === s}">${esc(s)}<b>${base.filter(l => l.stage === s).length}</b></button>`).join("")}</div>
-  ${rows.length ? `<div class="scroll"><table class="stack"><thead><tr><th></th>${ui.cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
+  ${rows.length ? `<div class="scroll"><table class="stack" data-sort-id="trk"><thead><tr><th></th>${ui.cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
   ${rows.map(l => `<tr class="${l.open && l._cls !== "g" ? l._cls : ""}" data-code="${l.code}"><td class="nw"><button class="btn sm pri" data-quick="${l.code}" data-year="${l.year}">+ Ενέργεια</button></td>${ui.cols.map(c => cellHTML(c, l)).join("")}</tr>`).join("")}
   </tbody></table></div>` : `<div class="empty">Δεν υπάρχουν leads με αυτά τα φίλτρα.</div>`}`;
 }
 function cellHTML(c, l) {
   const v = ALLCOLS[c](l);
-  if (c === "Κατάσταση") return `<td><span class="st"><i class="dot ${l._cls}"></i>${esc(v)}</span></td>`;
+  if (c === "Κατάσταση") return `<td data-s="${l.open ? l._days : 1e9}"><span class="st"><i class="dot ${l._cls}"></i>${esc(v)}</span></td>`;
   if (c === "Εταιρεία") return `<td class="co"><b>${esc(v)}</b></td>`;
   if (c === "Email") return `<td class="em">${esc(v)}</td>`;
   if (["Hall", "Αριθμός Stand"].includes(c)) return `<td class="nw">${esc(v)}</td>`;
@@ -766,7 +981,7 @@ function cellHTML(c, l) {
   if (c === "Τι έγινε τελευταία" || c === "Σημειώσεις") return `<td class="wide">${esc(v)}</td>`;
   if (c === "Ιστορικό ενεργειών") return `<td class="pre">${esc(v)}</td>`;
   if (c === "Τ.μ." || c === "Χρονιά") return `<td class="num">${esc(v)}</td>`;
-  if (c === "Τελευταία επαφή") return `<td class="nw">${esc(v)}</td>`;
+  if (c === "Τελευταία επαφή") return `<td class="nw" data-s="${l.last || ""}">${esc(v)}</td>`;
   if (c === "Τηλέφωνο") return `<td class="ph">${esc(v)}</td>`;
   return `<td>${esc(v)}</td>`;
 }
@@ -798,10 +1013,10 @@ function colPopover(anchor) {
 // ---- Εταιρείες ----
 function companiesHTML() {
   const q = Core.norm(ui.cq);
-  const cs = [...Core.derive().comp.values()].filter(c => !q || Core.norm([c.code, c.name, c.person, c.phone, c.email, c.v["Κλάδος"], c.v["Χώρα"]].join(" ")).includes(q)).sort((a, b) => a.name.localeCompare(b.name, "el"));
+  const cs = [...Core.derive().comp.values()].filter(c => !q || Core.norm([c.code, c.name, c.person, c.phone, c.email, c.v["Κλάδος"], countryLabel(c.v["Χώρα"])].join(" ")).includes(q)).sort((a, b) => a.name.localeCompare(b.name, "el"));
   return `<div class="filters"><label style="flex:1;min-width:220px">Αναζήτηση εταιρείας<input id="cQ" type="search" value="${esc(ui.cq)}" placeholder="όνομα, κωδικός, επαφή, κλάδος…"></label><span class="muted">${cs.length} εταιρείες</span></div>
-  <div class="scroll"><table class="stack"><thead><tr><th>Κωδ.</th><th>Εταιρεία</th><th>Κλάδος</th><th>Χώρα</th><th>Επαφή</th><th>Τηλέφωνο</th><th>Email</th><th>Χρονιές lead</th><th>Τελευταία χρονιά</th></tr></thead><tbody>
-  ${cs.map(c => `<tr data-code="${c.code}"><td class="num">${c.code}</td><td><b>${esc(c.name)}</b></td><td>${esc(c.v["Κλάδος"])}</td><td>${esc(c.v["Χώρα"])}</td><td>${esc(c.person)}</td><td class="nw">${esc(c.phone)}</td><td>${esc(c.email)}</td><td class="num">${c.leads.length}</td><td class="num">${c.leads.length ? Math.max(...c.leads.map(l => l.year)) : ""}</td></tr>`).join("")}
+  <div class="scroll"><table class="stack" data-sort-id="cos"><thead><tr><th>Κωδ.</th><th>Εταιρεία</th><th>Κλάδος</th><th>Χώρα</th><th>Επαφή</th><th>Τηλέφωνο</th><th>Email</th><th>Χρονιές lead</th><th>Τελευταία χρονιά</th></tr></thead><tbody>
+  ${cs.map(c => `<tr data-code="${c.code}"><td class="num">${c.code}</td><td><b>${esc(c.name)}</b></td><td>${esc(c.v["Κλάδος"])}</td><td>${esc(countryLabel(c.v["Χώρα"]))}</td><td>${esc(c.person)}</td><td class="nw">${esc(c.phone)}</td><td>${esc(c.email)}</td><td class="num">${c.leads.length}</td><td class="num">${c.leads.length ? Math.max(...c.leads.map(l => l.year)) : ""}</td></tr>`).join("")}
   </tbody></table></div>`;
 }
 
@@ -815,8 +1030,8 @@ function historyHTML() {
     <label>Χειριστής<select id="aH">${opt(list("Χειριστής").filter(h => !h.includes(",")), ui.ah, "Όλοι")}</select></label>
     <label>Τύπος<select id="aT">${opt(list("Τύπος ενέργειας"), ui.at, "Όλοι")}</select></label>
     <label style="flex:1;min-width:200px">Αναζήτηση<input id="aQ" type="search" value="${esc(ui.aq)}" placeholder="εταιρεία, περιγραφή, ημερομηνία…"></label><span class="muted">${as.length} ενέργειες</span></div>
-  ${as.length ? `<div class="scroll"><table class="stack"><thead><tr><th>Ημερομηνία</th><th>Εταιρεία</th><th>Χρονιά</th><th>Τύπος</th><th>Περιγραφή</th><th>Χειριστής</th></tr></thead><tbody>
-  ${as.slice(0, 600).map(a => `<tr data-code="${a.code}"><td class="nw">${fmtD(a.date)}</td><td><b>${esc(a.name)}</b></td><td class="num">${a.year || ""}</td><td>${esc(a.type)}</td><td class="wide">${esc(a.desc)}</td><td>${esc(a.handler)}</td></tr>`).join("")}
+  ${as.length ? `<div class="scroll"><table class="stack" data-sort-id="his"><thead><tr><th>Ημερομηνία</th><th>Εταιρεία</th><th>Χρονιά</th><th>Τύπος</th><th>Περιγραφή</th><th>Χειριστής</th></tr></thead><tbody>
+  ${as.slice(0, 600).map(a => `<tr data-code="${a.code}"><td class="nw" data-s="${a.date || ""}">${fmtD(a.date)}</td><td><b>${esc(a.name)}</b></td><td class="num">${a.year || ""}</td><td>${esc(a.type)}</td><td class="wide">${esc(a.desc)}</td><td>${esc(a.handler)}</td></tr>`).join("")}
   </tbody></table></div>` : `<div class="empty">Καμία ενέργεια με αυτά τα φίλτρα.</div>`}`;
 }
 
@@ -849,8 +1064,29 @@ function summaryHTML() {
     ${labels.map((l, i) => `<tr style="cursor:default"><td>${l}</td><td class="num"><b>${a[i]}</b></td><td class="num muted">${b[i]}</td></tr>`).join("")}</tbody></table></div></div>
   <div class="sec"><h3>Πορεία ενδιαφέροντος ${Y}</h3><div class="bars"><div class="muted" style="font-size:12px"><span></span><span></span><span style="text-align:right">${Y}</span><span style="text-align:right">${Y - 1}</span><span style="text-align:right">Τ.μ.</span></div>
     ${stages.map(s => { const n = L(Y).filter(l => l.stage === s).length; return `<div><span>${esc(s)}</span><span class="bar"><i style="width:${100 * n / mx}%"></i></span><b style="text-align:right">${n}</b><span class="muted" style="text-align:right">${L(Y - 1).filter(l => l.stage === s).length}</span><span style="text-align:right">${sum(L(Y).filter(l => l.stage === s)) || ""}</span></div>`; }).join("")}</div>
-    <h3 style="margin-top:20px">Ανά χειριστή (${Y})</h3><div class="scroll"><table><thead><tr><th>Χειριστής</th><th style="text-align:right">Leads</th><th style="text-align:right">Ανοιχτά</th><th style="text-align:right">Εκθέτες</th><th style="text-align:right">Ενέργειες 7 ημ.</th></tr></thead><tbody>
-    ${hs.map(h => { const ls = L(Y).filter(l => Core.norm(l.handler).includes(Core.norm(h))); return `<tr style="cursor:default"><td>${esc(h)}</td><td class="num">${ls.length}</td><td class="num">${ls.filter(l => l.open).length}</td><td class="num">${ls.filter(l => l.won).length}</td><td class="num">${d.acts.filter(x => Core.norm(x.handler).includes(Core.norm(h)) && x.date >= t - 6 && x.date <= t).length}</td></tr>`; }).join("")}</tbody></table></div></div></div>`;
+    <h3 style="margin-top:20px">Ανά χειριστή (${Y})</h3><div class="scroll"><table data-sort-id="sumh"><thead><tr><th>Χειριστής</th><th style="text-align:right">Leads</th><th style="text-align:right">Ανοιχτά</th><th style="text-align:right">Εκθέτες</th><th style="text-align:right">Ενέργειες 7 ημ.</th></tr></thead><tbody>
+    ${hs.map(h => { const ls = L(Y).filter(l => Core.norm(l.handler).includes(Core.norm(h))); return `<tr style="cursor:default"><td>${esc(h)}</td><td class="num">${ls.length}</td><td class="num">${ls.filter(l => l.open).length}</td><td class="num">${ls.filter(l => l.won).length}</td><td class="num">${d.acts.filter(x => Core.norm(x.handler).includes(Core.norm(h)) && x.date >= t - 6 && x.date <= t).length}</td></tr>`; }).join("")}</tbody></table></div></div></div>
+  ${sourceHTML(d, Y)}`;
+}
+function sourceHTML(d, Y) {
+  const S = Core.S.lists, win = S["Πορεία ενδιαφέροντος"][5], lost = S["Πορεία ενδιαφέροντος"][6], spon = S["Χορηγία"][2];
+  const g = ui.srcGroup || "full";
+  const keyOf = l => { const v = String(l.v["Προέλευση"] || "").trim(); if (!v) return "(χωρίς προέλευση)"; const p = v.split("·").map(x => x.trim());
+    return g === "type" ? (p.length > 1 ? p[0] : "(χωρίς τύπο)") : g === "channel" ? p[p.length - 1] : v; };
+  const order = g === "full" ? list("Προέλευση") : [];
+  const keys = [...new Set([...order, ...d.leads.filter(l => l.year === Y || l.year === Y - 1).map(keyOf)])];
+  const rows = keys.map(k => {
+    const ls = d.leads.filter(l => l.year === Y && keyOf(l) === k), prev = d.leads.filter(l => l.year === Y - 1 && keyOf(l) === k).length;
+    const ex = ls.filter(l => l.stage === win).length, ca = ls.filter(l => l.stage === lost).length;
+    return { k, n: ls.length, prev, open: ls.filter(l => l.open).length, ex, sp: ls.filter(l => l.sponsor === spon).length, ca,
+      conv: ex + ca ? Math.round(100 * ex / (ex + ca)) : null, sqm: ls.filter(l => l.stage === win).reduce((a, l) => a + (Number(l.v["Τ.μ."]) || 0), 0) };
+  }).filter(r => r.n || r.prev);
+  const tot = rows.reduce((a, r) => a + r.n, 0) || 1;
+  return `<div class="sec" style="margin-top:6px"><h3>Ανά προέλευση (${Y})<label style="font-size:12px;font-weight:400;color:var(--mute);display:flex;gap:6px;align-items:center">Ομαδοποίηση
+    <select id="srcG" style="min-height:30px;padding:2px 6px"><option value="full"${g === "full" ? " selected" : ""}>Πλήρης προέλευση</option><option value="type"${g === "type" ? " selected" : ""}>Τύπος (Παλιός Εκθέτης / Νέο Lead / …)</option><option value="channel"${g === "channel" ? " selected" : ""}>Κανάλι (Προσέγγιση / email / …)</option></select></label></h3>
+  ${rows.length ? `<div class="scroll"><table data-sort-id="src"><thead><tr><th>Προέλευση</th><th style="text-align:right">Leads ${Y}</th><th style="text-align:right">% του συνόλου</th><th style="text-align:right">Leads ${Y - 1}</th><th style="text-align:right">Ανοιχτά</th><th style="text-align:right">Εκθέτες</th><th style="text-align:right">Χορηγοί</th><th style="text-align:right">Ακυρώσεις</th><th style="text-align:right">Μετατροπή</th><th style="text-align:right">Τ.μ. εκθετών</th></tr></thead><tbody>
+  ${rows.map(r => `<tr style="cursor:default"><td>${esc(r.k)}</td><td class="num"><b>${r.n}</b></td><td class="num" data-s="${r.n / tot}">${Math.round(100 * r.n / tot)}%</td><td class="num muted">${r.prev}</td><td class="num">${r.open}</td><td class="num">${r.ex}</td><td class="num">${r.sp}</td><td class="num">${r.ca}</td><td class="num" data-s="${r.conv ?? -1}">${r.conv === null ? "–" : r.conv + "%"}</td><td class="num">${r.sqm || ""}</td></tr>`).join("")}
+  </tbody></table></div><p class="muted" style="font-size:12.5px;margin:6px 0 0">Μετατροπή = εκθέτες / (εκθέτες + ακυρώσεις). Πατήστε τον τίτλο μιας στήλης για ταξινόμηση.</p>` : `<div class="empty">Κανένα lead για ${Y}.</div>`}</div>`;
 }
 
 // ---- Ρυθμίσεις ----
@@ -869,6 +1105,10 @@ function settingsHTML() {
   <div class="sec"><h3>Αλλαγή κωδικού</h3><div class="card"><div class="fg">
     <label>Νέος κωδικός<input id="pw1" type="password" autocomplete="new-password"></label><label>Ξανά<input id="pw2" type="password" autocomplete="new-password"></label></div>
     <button class="btn" id="pwBtn" style="margin-top:10px">Αλλαγή κωδικού</button></div></div></div>
+  ${(() => { const fx = countryFixes(), unk = [...new Set(Core.rows.E.map(r => String(r.v["Χώρα"] || "").trim()).filter(v => v && !countryOf(v)))];
+    return `<div class="sec"><h3>Χώρες</h3><div class="card"><p style="margin:0 0 8px;font-size:13.5px">Στις φόρμες η χώρα διαλέγεται από λίστα (γράφετε ελληνικά ή αγγλικά) και αποθηκεύεται με το αγγλικό της όνομα.</p>
+    ${fx.length ? `<p style="margin:0 0 8px;font-size:13.5px"><b>${fx.length}</b> εταιρείες έχουν τη χώρα γραμμένη αλλιώς (π.χ. ${esc([...new Set(fx.map(x => Core.rows.E.find(r => r.id === x[0]).v["Χώρα"] + " → " + x[2]))].slice(0, 4).join(", "))}).</p><button class="btn pri sm" id="normC">Ενοποίηση ${fx.length} εγγραφών</button>` : `<p class="muted" style="margin:0;font-size:13px">Όλες οι χώρες είναι γραμμένες ενιαία.</p>`}
+    ${unk.length ? `<p class="muted" style="margin:8px 0 0;font-size:12.5px">Δεν αναγνωρίστηκαν (διορθώστε τα από την καρτέλα της εταιρείας): ${esc(unk.join(", "))}</p>` : ""}</div></div>`; })()}
   <div class="sec"><h3>Λίστες επιλογών</h3><p class="muted" style="font-size:14px;margin-top:0">Στην «Πορεία ενδιαφέροντος» η 6η τιμή σημαίνει επιτυχία και η 7η απώλεια· στη «Χορηγία» οι 2 πρώτες = σε εξέλιξη, η 3η = κλεισμένη. Οι νέες τιμές μπαίνουν στην πρώτη κενή θέση και τις βλέπουν αμέσως όλοι. Η μετονομασία (✎) αλλάζει την τιμή και σε όλες τις εγγραφές που τη χρησιμοποιούν· η διαγραφή (✕) τη βγάζει μόνο από τη λίστα. Οι τιμές με ειδική σημασία δεν σβήνονται.</p>
   <div class="lists">${Object.keys(L).filter(h => h !== "Ναι/Όχι").map(h => `<div class="card"><b>${esc(h)}</b><ol class="lv">${L[h].map((v, i) => [v, i]).filter(([v]) => String(v).trim() !== "").map(([v, i]) => `<li data-l="${esc(h)}" data-p="${i}"><span class="t">${esc(v)}</span><span class="lb">${Core.canMove(h) ? `<button data-lm="-1" title="Πάνω" aria-label="Πάνω">↑</button><button data-lm="1" title="Κάτω" aria-label="Κάτω">↓</button>` : ""}<button data-le title="Μετονομασία" aria-label="Μετονομασία">✎</button>${Core.isFixed(h, i) ? "" : `<button data-ld title="Διαγραφή" aria-label="Διαγραφή">✕</button>`}</span></li>`).join("")}</ol>
     <div style="display:flex;gap:6px"><input data-listin="${esc(h)}" placeholder="νέα τιμή" style="flex:1;min-height:34px;padding:4px 8px"><button class="btn sm" data-listadd="${esc(h)}">Προσθήκη</button></div></div>`).join("")}</div></div>`;
@@ -906,6 +1146,8 @@ function bindMain(partial) {
   on("aH", "onchange", e => { ui.ah = e.target.value; rerender(); });
   on("aT", "onchange", e => { ui.at = e.target.value; rerender(); });
   on("sY", "onchange", e => { ui.sy = +e.target.value; rerender(); });
+  on("srcG", "onchange", e => { ui.srcGroup = e.target.value; rerender(); });
+  on("normC", "onclick", e => busy(e.target, async () => { const ch = countryFixes(); const n = await Core.setFieldMany("E", ch); return { msg: `Ενοποιήθηκαν ${n} εγγραφές χωρών.` }; }));
   on("sMe", "onchange", e => { ui.me = e.target.value; LS.set("me", ui.me); });
   on("sO", "onchange", e => { ui.orange = Math.max(1, +e.target.value || 7); LS.set("orange", ui.orange); });
   on("sR", "onchange", e => { ui.red = Math.max(1, +e.target.value || 21); LS.set("red", ui.red); });
@@ -947,10 +1189,73 @@ async function loadUsage() {
     <div class="grid" style="margin-top:10px"><div><span>Εταιρείες</span>${fmt(u.companies)}</div><div><span>Leads</span>${fmt(u.leads)}</div><div><span>Ενέργειες</span>${fmt(u.actions)}</div><div><span>Επαφές</span>${fmt(u.contacts)}</div></div>
     <p class="muted" style="margin:10px 0 0;font-size:12.5px">${fmt(recs)} εγγραφές συνολικά. Το μέγεθος περιλαμβάνει και τα αρχεία συστήματος της βάσης (περίπου 10–20 MB σταθερά). Την κίνηση (egress, όριο 5 GB/μήνα) τη βλέπετε στο ${link}.</p>`;
 }
+// ---------- ταξινόμηση πινάκων (κλικ στον τίτλο της στήλης) ----------
+ui.sorts = LS.get("sorts", {});
+function sortVal(td) {
+  if (!td) return null;
+  if (td.dataset.s !== undefined) return td.dataset.s === "" ? null : Number(td.dataset.s);
+  const t = td.textContent.trim(); if (!t || t === "–" || t === "—") return null;
+  if (/^-?\d+([.,]\d+)?%?$/.test(t)) return parseFloat(t.replace(",", "."));
+  return t;
+}
+function applySorts(root) {
+  for (const tb of (root || document).querySelectorAll("table[data-sort-id]")) {
+    const id = tb.dataset.sortId, st = ui.sorts[id], body = tb.tBodies[0]; if (!body) continue;
+    const ths = [...tb.tHead.rows[0].cells];
+    ths.forEach((th, i) => { if (!th.textContent.trim()) return; th.classList.add("so"); th.dataset.ci = i; th.removeAttribute("data-dir");
+      if (!th.querySelector(".si")) th.insertAdjacentHTML("beforeend", '<span class="si">↕</span>');
+      th.querySelector(".si").textContent = st && st.c === i ? (st.d > 0 ? "▲" : "▼") : "↕"; if (st && st.c === i) th.dataset.dir = st.d; });
+    const rows = [...body.rows]; rows.forEach((r, i) => { if (r.dataset.oi === undefined) r.dataset.oi = i; });
+    if (!st || !ths[st.c]) { rows.sort((a, b) => a.dataset.oi - b.dataset.oi); }
+    else rows.sort((a, b) => {
+      const x = sortVal(a.cells[st.c]), y = sortVal(b.cells[st.c]);
+      if (x === null && y === null) return a.dataset.oi - b.dataset.oi; if (x === null) return 1; if (y === null) return -1;
+      const r = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "el", { numeric: true, sensitivity: "base" });
+      return r * st.d || a.dataset.oi - b.dataset.oi;
+    });
+    body.append(...rows);
+  }
+}
+document.addEventListener("click", e => {
+  const th = e.target.closest("th.so"); if (!th) return;
+  const tb = th.closest("table[data-sort-id]"), id = tb.dataset.sortId, c = +th.dataset.ci, st = ui.sorts[id];
+  ui.sorts[id] = !st || st.c !== c ? { c, d: 1 } : st.d === 1 ? { c, d: -1 } : null;   // ▲ → ▼ → αρχική σειρά
+  if (!ui.sorts[id]) delete ui.sorts[id];
+  LS.set("sorts", ui.sorts); applySorts(tb.parentElement);
+});
+new MutationObserver(() => { const v = $("#view"); if (v && !v._sorted) { v._sorted = true; applySorts(v); } }).observe(document.body, { childList: true, subtree: true });
+
+// ---------- χώρες ----------
+function countryFixes() {
+  const ch = [];
+  for (const r of Core.rows.E) { const v = r.v["Χώρα"]; if (!String(v || "").trim()) continue; const c = countryOf(v); if (c && c.en !== v) ch.push([r.id, "Χώρα", c.en]); }
+  return ch;
+}
+function setupCountry(frm) {
+  for (const box of frm.querySelectorAll(".cbx")) {
+    const inp = box.querySelector(".cbx-in"), hid = box.querySelector("input[type=hidden]"), lst = box.querySelector(".cbx-list");
+    let items = [], act = -1;
+    const show = () => { items = countrySearch(inp.value).slice(0, 60); act = items.length ? 0 : -1;
+      lst.innerHTML = items.map((c, i) => `<div data-i="${i}" aria-selected="${i === act}">${esc(c.el)}<small>${esc(c.en)}</small></div>`).join("") || `<div style="cursor:default" class="muted">Καμία χώρα· θα κρατηθεί όπως το γράψατε</div>`; lst.hidden = false; };
+    const pick = c => { hid.value = c.en; inp.value = `${c.el} · ${c.en}`; lst.hidden = true; };
+    const mark = () => [...lst.children].forEach((d, i) => d.setAttribute("aria-selected", i === act));
+    inp.onfocus = () => { inp.select(); show(); };
+    inp.oninput = () => { const c = countryOf(inp.value); hid.value = c ? c.en : inp.value.trim(); show(); };
+    inp.onkeydown = e => {
+      if (lst.hidden) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); act = Math.min(items.length - 1, act + 1); mark(); lst.children[act]?.scrollIntoView({ block: "nearest" }); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); act = Math.max(0, act - 1); mark(); lst.children[act]?.scrollIntoView({ block: "nearest" }); }
+      else if (e.key === "Enter" && act >= 0 && items[act]) { e.preventDefault(); pick(items[act]); }
+      else if (e.key === "Escape") { e.stopPropagation(); lst.hidden = true; }
+    };
+    lst.onmousedown = e => { const d = e.target.closest("[data-i]"); if (d) { e.preventDefault(); pick(items[+d.dataset.i]); } };
+    inp.onblur = () => setTimeout(() => { lst.hidden = true; const c = countryOf(hid.value); if (c) inp.value = `${c.el} · ${c.en}`; }, 120);
+  }
+}
 function rerender(focusId) {
   const pos = focusId && $("#" + focusId) ? $("#" + focusId).selectionStart : null;
   const views = { track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML };
-  $("#view").innerHTML = views[ui.view](); bindMain(true);
+  $("#view").innerHTML = views[ui.view](); bindMain(true); applySorts($("#view"));
   if (ui.view === "settings") loadUsage();
   if (focusId) { const el = $("#" + focusId); el.focus(); if (pos !== null) el.setSelectionRange(pos, pos); }
 }
@@ -1002,7 +1307,7 @@ function openDrawer(code) {
     <div class="row"><button class="btn lime sm" data-f="action">+ Ενέργεια</button><button class="btn ghost sm" data-f="lead">+ Lead νέας χρονιάς</button><button class="btn ghost sm" data-f="contact">+ Επαφή</button><button class="btn ghost sm" data-f="rename">Μετονομασία</button><button class="btn ghost sm" data-f="del">Διαγραφή</button></div></div>
   <div class="db">
     <div class="sec"><h3>Στοιχεία <button class="btn sm" data-edit="E" data-i="${c.i}">Επεξεργασία</button></h3><div class="grid">
-      ${["Κλάδος", "Χώρα", "FG/RET", "Tellody", "Αναγνωριστικό List"].map(h => `<div><span>${h}</span>${esc(c.v[h]) || "—"}</div>`).join("")}
+      ${["Κλάδος", "Χώρα", "FG/RET", "Tellody", "Αναγνωριστικό List"].map(h => `<div><span>${h}</span>${esc(h === "Χώρα" ? countryLabel(c.v[h]) : c.v[h]) || "—"}</div>`).join("")}
       <div><span>Σύνδεσμος αρχείων</span>${/^https:\/\//.test(String(c.v["Σύνδεσμος αρχείων"])) ? `<a href="${esc(c.v["Σύνδεσμος αρχείων"])}" target="_blank" rel="noopener">άνοιγμα</a>` : esc(c.v["Σύνδεσμος αρχείων"]) || "—"}</div></div></div>
     <div class="sec"><h3>Επαφές (${c.contacts.length})</h3>${c.contacts.map(p => `<div class="card"><div class="hd"><b>${esc(p.v["Ονοματεπώνυμο"])}${p.v["Κύρια επαφή"] === "Ναι" ? ' <span class="chip" style="padding:1px 8px">κύρια</span>' : ""}</b><span><button class="btn sm" data-edit="P" data-i="${p.i}">Επεξεργασία</button> <button class="btn sm" data-rm="P" data-i="${p.i}">Αφαίρεση</button></span></div>
       <div class="grid">${["Θέση", "Τηλέφωνο", "Email", "Σημειώσεις"].filter(h => String(p.v[h] ?? "").trim()).map(h => `<div><span>${h}</span>${esc(p.v[h])}</div>`).join("")}</div></div>`).join("") || '<p class="muted">Καμία επαφή.</p>'}</div>
@@ -1036,7 +1341,7 @@ const F = (name, label, type, o = {}) => ({ name, label, type, ...o });
 const sel = (name, label, listName, o) => F(name, label, "select", { list: listName, ...o });
 const FORMS = {
   lead: { title: "Νέο lead / νέα εταιρεία", ok: "Αποθήκευση", hint: "Νέα εταιρεία ή παλιά εταιρεία για νέα χρονιά. Δημιουργεί εταιρεία (αν δεν υπάρχει), επαφή, lead και πρώτη ενέργεια.",
-    groups: [["Εταιρεία", [F("company", "Εταιρεία * (διαλέξτε ή γράψτε νέο όνομα)", "company", { full: 1 }), sel("sector", "Κλάδος", "Κλάδος"), F("country", "Χώρα", "text"), sel("fgret", "FG/RET", "FG/RET"), sel("tellody", "Tellody", "Tellody")]],
+    groups: [["Εταιρεία", [F("company", "Εταιρεία * (διαλέξτε ή γράψτε νέο όνομα)", "company", { full: 1 }), sel("sector", "Κλάδος", "Κλάδος"), F("country", "Χώρα", "country"), sel("fgret", "FG/RET", "FG/RET"), sel("tellody", "Tellody", "Tellody")]],
       ["Επαφή", [F("cname", "Ονοματεπώνυμο", "text"), F("crole", "Θέση", "text"), F("cphone", "Τηλέφωνο", "text"), F("cemail", "Email", "email")]],
       ["Lead", [sel("year", "Χρονιά *", "Χρονιά"), sel("source", "Προέλευση (τύπος · κανάλι)", "Προέλευση"), sel("handler", "Χειριστής", "Χειριστής"), sel("stage", "Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος"), sel("sponsor", "Χορηγία", "Χορηγία"), sel("hall", "Hall", "Hall"), F("sqm", "Τ.μ.", "number")]],
       ["Πρώτη ενέργεια", [F("adate", "Ημερομηνία", "date"), sel("atype", "Τύπος ενέργειας", "Τύπος ενέργειας"), F("adesc", "Περιγραφή", "textarea", { full: 1 })]]],
@@ -1055,7 +1360,7 @@ const FORMS = {
   rename: { title: "Μετονομασία εταιρείας", ok: "Μετονομασία", hint: "Το όνομα αλλάζει μόνο στις «Εταιρείες»· όλα τα άλλα φύλλα ακολουθούν, γιατί συνδέονται με τον κωδικό.",
     groups: [["", [F("company", "Εταιρεία", "company", { full: 1 }), F("newName", "Το σωστό όνομα *", "text", { full: 1 })]]],
     run: v => Core.rename(String(Core.parseCode(v.company) || v.company), v.newName) },
-  editE: { title: "Στοιχεία εταιρείας", ok: "Αποθήκευση", k: "E", groups: [["", [sel("Κλάδος", "Κλάδος", "Κλάδος"), F("Χώρα", "Χώρα", "text"), sel("FG/RET", "FG/RET", "FG/RET"), sel("Tellody", "Tellody", "Tellody"), F("Σύνδεσμος αρχείων", "Σύνδεσμος αρχείων", "text", { full: 1 }), F("Αναγνωριστικό List", "Αναγνωριστικό List", "text")]]] },
+  editE: { title: "Στοιχεία εταιρείας", ok: "Αποθήκευση", k: "E", groups: [["", [sel("Κλάδος", "Κλάδος", "Κλάδος"), F("Χώρα", "Χώρα", "country"), sel("FG/RET", "FG/RET", "FG/RET"), sel("Tellody", "Tellody", "Tellody"), F("Σύνδεσμος αρχείων", "Σύνδεσμος αρχείων", "text", { full: 1 }), F("Αναγνωριστικό List", "Αναγνωριστικό List", "text")]]] },
   editL: { title: "Επεξεργασία lead", ok: "Αποθήκευση", k: "L", hint: "Για αλλαγή πορείας με καταγραφή στο ιστορικό, προτιμήστε «+ Ενέργεια».",
     groups: [["", [sel("Προέλευση", "Προέλευση", "Προέλευση"), sel("Χειριστής", "Χειριστής", "Χειριστής"), sel("Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος"), sel("Χορηγία", "Χορηγία", "Χορηγία"),
       sel("Λόγος ακύρωσης", "Λόγος ακύρωσης", "Λόγος ακύρωσης"), sel("Hall", "Hall", "Hall"), F("Αριθμός Stand", "Αριθμός Stand", "text"), F("Τ.μ.", "Τ.μ.", "number"), F("Σημειώσεις", "Σημειώσεις", "textarea", { full: 1 }), F("Αρχικά σχόλια List", "Αρχικά σχόλια List", "textarea", { full: 1 })]]] },
@@ -1073,6 +1378,7 @@ function fieldHTML(f, val) {
     inp = `<select ${nm}>${opt(all, val, f.nofirst ? undefined : "—")}</select>`;
   } else if (f.type === "textarea") inp = `<textarea ${nm}>${esc(val)}</textarea>`;
   else if (f.type === "company") inp = `<input ${nm} list="dl-co" autocomplete="off" value="${esc(val)}">`;
+  else if (f.type === "country") inp = `<span class="cbx"><input class="cbx-in" id="${id}" autocomplete="off" placeholder="γράψτε ελληνικά ή αγγλικά…" value="${esc(val ? countryLabel(val) : "")}"><input type="hidden" name="${esc(f.name)}" value="${esc(val)}"><span class="cbx-list" hidden></span></span>`;
   else if (f.type === "date") inp = `<input ${nm} type="date" value="${val ? toInputDate(val) : ""}">`;
   else if (f.type === "leadyear" || f.type === "delyear") inp = `<select ${nm}></select>`;
   else if (f.type === "check") return `<label class="full" style="flex-direction:row;align-items:center;gap:8px;color:var(--red);font-weight:600"><input type="checkbox" ${nm} style="min-height:0;width:20px;height:20px">${esc(f.label)}</label>`;
@@ -1111,6 +1417,7 @@ function openForm(kind, pre) {
   frm.oninput = e => { if (e.target.name === "company" || e.target.name === "year") live(); };
   frm.onchange = live;
   live();
+  setupCountry(frm);
   frm.onsubmit = e => { e.preventDefault(); submitForm(); };
   $("#mClose").onclick = closeForm; $("#mCancel").onclick = closeForm; $("#mOk").onclick = submitForm;
   setTimeout(() => { const first = frm.querySelector("input:not([readonly]),select,textarea"); if (first && !pre.company) first.focus(); else { const d = frm.querySelector('[name="desc"],[name="name"],[name="newName"]'); if (d) d.focus(); } }, 30);
