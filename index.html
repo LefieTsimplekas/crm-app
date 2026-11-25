@@ -471,7 +471,8 @@ const Core = (() => {
   }
 
   return {
-    init(client) { sb = client; }, load, applyChange, derive, newLead, newAction, newContact, remove, deletePreview, addListValue, removeListValue, rename, editRow, removeRow, row,
+    init(client) { sb = client; }, load, applyChange,
+    async usage() { const { data, error } = await sb.rpc("db_usage"); if (error) return null; return typeof data === "string" ? JSON.parse(data) : data; }, derive, newLead, newAction, newContact, remove, deletePreview, addListValue, removeListValue, rename, editRow, removeRow, row,
     findCompany, parseCode, today, norm, latestYear, get S() { return S; }, get version() { return version; }, get rows() { return rows; }
   };
 })();
@@ -765,6 +766,7 @@ function settingsHTML() {
     <div class="fg"><label class="full">Ονοματεπώνυμο (όπως θα φαίνεται στη στήλη Χειριστής)<input id="newH" placeholder="π.χ. Maria Papadopoulou"></label></div>
     <button class="btn pri" id="addH" style="margin-top:10px">Προσθήκη χειριστή</button>
     <p class="muted" style="font-size:13px;margin-bottom:0">Για να μπαίνει στην εφαρμογή, δημιουργήστε του και λογαριασμό: Supabase → Authentication → Users → Add user.</p></div></div>
+  <div class="sec"><h3>Όρια Supabase (δωρεάν πλάνο)</h3><div class="card" id="usage"><span class="muted">Φόρτωση…</span></div></div>
   <div class="sec"><h3>Αλλαγή κωδικού</h3><div class="card"><div class="fg">
     <label>Νέος κωδικός<input id="pw1" type="password" autocomplete="new-password"></label><label>Ξανά<input id="pw2" type="password" autocomplete="new-password"></label></div>
     <button class="btn" id="pwBtn" style="margin-top:10px">Αλλαγή κωδικού</button></div></div></div>
@@ -780,6 +782,7 @@ function bindMain(partial) {
     $("#exportBtn").onclick = exportExcel;
     $("#logoutBtn").onclick = async () => { await sb.auth.signOut(); };
     document.querySelectorAll("nav [data-view]").forEach(b => b.onclick = () => { ui.view = b.dataset.view; render(); });
+    if (ui.view === "settings") loadUsage();
     document.querySelectorAll(".acts [data-form]").forEach(b => b.onclick = () => openForm(b.dataset.form, {}));
   }
   V.onclick = e => {
@@ -806,10 +809,25 @@ function bindMain(partial) {
   on("sO", "onchange", e => { ui.orange = Math.max(1, +e.target.value || 7); LS.set("orange", ui.orange); });
   on("sR", "onchange", e => { ui.red = Math.max(1, +e.target.value || 21); LS.set("red", ui.red); });
 }
+async function loadUsage() {
+  const box = $("#usage"); if (!box) return;
+  const u = await Core.usage().catch(() => null);
+  if (!$("#usage")) return;
+  const fmt = n => n.toLocaleString("el-GR");
+  const link = `<a href="https://supabase.com/dashboard/org/_/usage" target="_blank" rel="noopener">Supabase → Usage</a>`;
+  if (!u) { box.innerHTML = `<p class="muted" style="margin:0;font-size:13px">Ο δείκτης δεν είναι ενεργός ακόμα: τρέξτε μία φορά το <b>db/usage.sql</b> στο SQL Editor του Supabase. Μέχρι τότε τα όρια φαίνονται στο ${link}.</p>`; return; }
+  const mb = u.db_bytes / 1048576, pct = Math.min(100, 100 * mb / 500), col = pct > 80 ? "var(--red)" : pct > 60 ? "var(--amb)" : "var(--brand2)";
+  const recs = u.companies + u.leads + u.actions + u.contacts;
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><b>Μέγεθος βάσης</b><span>${mb.toFixed(1)} MB από 500 MB (${pct.toFixed(1)}%)</span></div>
+    <div class="bar" style="height:12px"><i style="width:${Math.max(pct, 0.5)}%;background:${col}"></i></div>
+    <div class="grid" style="margin-top:10px"><div><span>Εταιρείες</span>${fmt(u.companies)}</div><div><span>Leads</span>${fmt(u.leads)}</div><div><span>Ενέργειες</span>${fmt(u.actions)}</div><div><span>Επαφές</span>${fmt(u.contacts)}</div></div>
+    <p class="muted" style="margin:10px 0 0;font-size:12.5px">${fmt(recs)} εγγραφές συνολικά. Το μέγεθος περιλαμβάνει και τα αρχεία συστήματος της βάσης (περίπου 10–20 MB σταθερά). Την κίνηση (egress, όριο 5 GB/μήνα) τη βλέπετε στο ${link}.</p>`;
+}
 function rerender(focusId) {
   const pos = focusId && $("#" + focusId) ? $("#" + focusId).selectionStart : null;
   const views = { track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML };
   $("#view").innerHTML = views[ui.view](); bindMain(true);
+  if (ui.view === "settings") loadUsage();
   if (focusId) { const el = $("#" + focusId); el.focus(); if (pos !== null) el.setSelectionRange(pos, pos); }
 }
 async function busy(btn, fn) {
