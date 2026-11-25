@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leads CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+/* VOICE: εργαλείο γραφείου – ήρεμο, πυκνό, ευανάγνωστο, χωρίς στολίδια
+   IDEA: πίνακας αναχωρήσεων συγκοινωνίας: κάθε lead είναι «δρομολόγιο» με χρώμα σήματος για το πόσο καιρό περιμένει
+   PICTURE: η ζωντανή λίστα παρακολούθησης με τα σήματα κατάστασης και τη γραμμή pipeline πάνω της
+   COLOUR and TYPE: βαθύ πράσινο #00463c, λευκό, lime-white #e6f5c8, κοραλί #ff6f59 για ό,τι καθυστερεί · Inter Tight 700 + Inter
+   LAYOUT: πράσινη μπάρα με αρχείο/αποθήκευση, καρτέλες, φίλτρα, μετρητές, πίνακας· καρτέλα εταιρείας σε συρτάρι δεξιά */
+:root{color-scheme:light dark;
+--bg:light-dark(#ffffff,#0d1715);--bg2:light-dark(#f4f7f5,#13211e);--ink:light-dark(#14211e,#e8efec);--mute:light-dark(#5b6b67,#9fb2ad);
+--line:light-dark(#dde5e2,#26372f);--brand:#00463c;--brand2:light-dark(#00594c,#0b6b5c);--lime:#e6f5c8;--red:#e5533d;--redbg:light-dark(#fde8e4,#3a1d18);
+--amb:#c98400;--ambbg:light-dark(#fff3d6,#3a2c0e);--grn:#1f8a5b;--grnbg:light-dark(#e3f4ea,#12301f);--card:light-dark(#fff,#111d1a)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:"Inter Tight",Inter,sans-serif;margin:0;line-height:1.15}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #6fbf9f;outline-offset:2px}
+.top{background:var(--brand);color:#fff;padding:12px max(3vw,14px);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.top h1{font-size:22px;letter-spacing:-.01em}
+.top .file{color:var(--lime);font-size:13px;opacity:.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:36ch}
+.top .sp{flex:1}
+.live{display:inline-block;width:8px;height:8px;border-radius:50%;background:#9fb2ad;margin-right:7px;vertical-align:middle}.live[data-on=on]{background:#7ee2a8;box-shadow:0 0 0 3px rgba(126,226,168,.25)}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:9px 14px;min-height:40px;font-weight:500}
+.btn:hover{border-color:var(--mute)}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.lime{background:var(--lime);border-color:var(--lime);color:#0d2b25;font-weight:600}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,.35);color:#fff}
+.btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+.btn.sm{min-height:32px;padding:4px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+.badge{background:#ff6f59;color:#fff;border-radius:99px;padding:1px 8px;font-size:12px;margin-left:6px}
+nav{display:flex;gap:4px;padding:0 max(3vw,14px);background:var(--brand);overflow-x:auto}
+nav button{flex:none;background:none;border:0;color:#cfe3dc;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:500;white-space:nowrap}
+nav button[aria-current=true]{background:var(--bg);color:var(--ink)}
+.acts{display:flex;gap:8px;flex-wrap:wrap;padding:14px max(3vw,14px) 0}
+main{padding:14px max(3vw,14px) 60px;max-width:1500px}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+.filters label{display:flex;flex-direction:column;font-size:12px;color:var(--mute);gap:3px}
+input,select,textarea{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 10px;min-height:40px;font-size:15px}
+textarea{min-height:80px;resize:vertical}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--card);text-align:left}
+.kpi b{display:block;font:700 28px/1.1 "Inter Tight",sans-serif}
+.kpi span{font-size:13px;color:var(--mute)}
+.kpi.r{border-color:var(--red)}.kpi.r b{color:var(--red)}.kpi.a b{color:var(--amb)}.kpi.g b{color:var(--grn)}
+.pipe{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{border:1px solid var(--line);background:var(--bg2);border-radius:99px;padding:5px 12px;font-size:13px}
+.chip b{margin-left:6px}
+.chip[aria-pressed=true]{background:var(--brand);color:#fff;border-color:var(--brand)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:var(--bg2);font-weight:600;font-size:13px;position:sticky;top:0;white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--bg2)}
+tr.r td{background:var(--redbg)}tr.a td{background:var(--ambbg)}
+td.num{text-align:right;white-space:nowrap}td.nw{white-space:nowrap}
+td.wide{min-width:260px;max-width:420px}
+td.pre{white-space:pre-line;min-width:280px}
+.st{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-weight:500}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--grn)}
+.dot.r{background:var(--red)}.dot.a{background:var(--amb)}.dot.k{background:var(--mute)}
+.muted{color:var(--mute)}
+.empty{padding:40px 20px;text-align:center;color:var(--mute)}
+/* welcome */
+.welcome{max-width:760px;margin:6vh auto;padding:0 16px}
+.welcome h2{font-size:40px;margin-bottom:10px}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:36px;text-align:center;margin:22px 0;background:var(--bg2)}
+.drop.on{border-color:var(--brand);background:var(--grnbg)}
+/* drawer & modal */
+.ov{position:fixed;inset:0;background:rgba(5,20,16,.45);display:none;z-index:20}
+.ov.on{display:block}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(640px,100%);background:var(--bg);z-index:21;transform:translateX(100%);transition:transform .2s;overflow-y:auto;box-shadow:-10px 0 30px rgba(0,0,0,.2)}
+.drawer.on{transform:none}
+.dh{background:var(--brand);color:#fff;padding:16px 18px;position:sticky;top:0;z-index:2}
+.dh h2{font-size:24px}
+.dh .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.db{padding:16px 18px}
+.sec{margin-bottom:22px}
+.sec h3{font-size:16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 14px;font-size:14px}
+.grid div span{display:block;font-size:12px;color:var(--mute)}
+.card{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;background:var(--card)}
+.card .hd{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.tl{list-style:none;padding:0;margin:0}
+.tl li{border-left:3px solid var(--line);padding:4px 0 10px 12px;position:relative}
+.tl li .m{font-size:12px;color:var(--mute)}
+.tl li .x{float:right;display:flex;gap:4px}
+.modal{position:fixed;inset:0;display:none;z-index:30;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow-y:auto;background:rgba(5,20,16,.5)}
+.modal.on{display:flex}
+.mbox{background:var(--bg);border-radius:14px;width:min(720px,100%);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.mh{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.mh h2{font-size:21px}
+.mb{padding:16px 20px}
+.mb fieldset{border:0;padding:0;margin:0 0 14px}
+.mb legend{font-weight:600;font-family:"Inter Tight",sans-serif;margin-bottom:6px;font-size:15px}
+.fg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fg label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--mute)}
+.fg label.full{grid-column:1/-1}
+.fg input,.fg select,.fg textarea{color:var(--ink);width:100%}
+.mf{padding:12px 20px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line)}
+.msg{flex:1;font-size:14px}
+.msg.err{color:var(--red)}.msg.ok{color:var(--grn)}
+.info{background:var(--bg2);border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+.x-close{background:none;border:0;font-size:26px;line-height:1;color:inherit;padding:4px 8px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#0d2b25;color:#fff;padding:12px 18px;border-radius:10px;z-index:40;max-width:min(680px,92vw);display:none;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.toast.on{display:block}.toast.err{background:#8a2a1c}
+.bars div{display:grid;grid-template-columns:minmax(0,13em) 1fr 3em 3em 4em;gap:8px;align-items:center;font-size:14px;padding:4px 0}
+.bar{height:14px;background:var(--bg2);border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--brand2)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:18px}
+.lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.lists .card ol{margin:6px 0 8px;padding-left:20px;font-size:14px}
+.pop{position:absolute;z-index:15;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-height:60vh;overflow:auto;width:300px}
+.pop div{display:flex;align-items:center;gap:6px;padding:2px 0}
+.pop label{flex:1;display:flex;gap:6px;align-items:center}
+.pop button{border:1px solid var(--line);background:var(--card);border-radius:6px;width:28px;height:28px}
+@media(max-width:600px){.fg{grid-template-columns:1fr}.top h1{font-size:19px}.bars div{grid-template-columns:minmax(0,9em) 1fr 2.5em 2.5em 0}.welcome h2{font-size:30px}}
+@media(prefers-reduced-motion:reduce){.drawer{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="ov" id="ov"></div>
+<aside class="drawer" id="drawer" aria-label="Καρτέλα εταιρείας"></aside>
+<div class="modal" id="modal" role="dialog" aria-modal="true"><div class="mbox" id="mbox"></div></div>
+<div class="toast" id="toast" role="status"></div>
+<datalist id="dl-co"></datalist>
+<script>
+// ===== Store: τα δεδομένα στο Supabase, με την ίδια λογική που είχαν τα Office Scripts =====
+const Core = (() => {
+  const MAP = {
+    E: { table: "companies", id: "code", cols: { "Κωδ.": "code", "Εταιρεία": "name", "Κλάδος": "sector", "Χώρα": "country", "FG/RET": "fgret", "Tellody": "tellody", "Σύνδεσμος αρχείων": "files_link", "Αναγνωριστικό List": "list_id" } },
+    L: { table: "leads", id: "id", cols: { "Επιλογή εταιρείας": "company_code", "Χρονιά": "year", "Προέλευση": "source", "Χειριστής": "handler", "Πορεία ενδιαφέροντος": "stage", "Χορηγία": "sponsor", "Λόγος ακύρωσης": "cancel_reason", "Hall": "hall", "Αριθμός Stand": "stand", "Τ.μ.": "sqm", "Σημειώσεις": "notes", "Αρχικά σχόλια List": "list_comments" } },
+    A: { table: "actions", id: "id", cols: { "Ημερομηνία": "action_date", "Επιλογή εταιρείας": "company_code", "Χρονιά lead": "lead_year", "Τύπος ενέργειας": "type", "Περιγραφή": "description", "Χειριστής": "handler" } },
+    P: { table: "contacts", id: "id", cols: { "Επιλογή εταιρείας": "company_code", "Ονοματεπώνυμο": "name", "Θέση": "role", "Τηλέφωνο": "phone", "Email": "email", "Κύρια επαφή": "is_primary", "Σημειώσεις": "notes" } }
+  };
+  const NUMS = new Set(["year", "lead_year", "sqm", "company_code", "code"]);
+  let sb = null, rows = { E: [], L: [], A: [], P: [] }, S = { lists: {} }, version = 0;
+
+  // ---------- βοηθητικά ----------
+  const norm = v => String(v === null || v === undefined ? "" : v).trim().toLowerCase().replace(/\s+/g, " ");
+  const isBlank = v => norm(v) === "";
+  function parseCode(v) { if (typeof v === "number") return v; const m = String(v ?? "").match(/^\s*(\d+)\s*(·|$)/); return m ? Number(m[1]) : 0; }
+  function today() { const d = new Date(); return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000) + 25569; }
+  const num = v => { if (v === "" || v === null || v === undefined) return 0; const n = Number(v); return isNaN(n) ? 0 : n; };
+  const serialToISO = n => new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 864e5).toISOString().slice(0, 10);
+  const isoToSerial = s => { if (!s) return ""; const [y, m, d] = String(s).slice(0, 10).split("-").map(Number); return Math.floor(Date.UTC(y, m - 1, d) / 864e5) + 25569; };
+
+  // γραμμή βάσης -> αντικείμενο με τα ελληνικά ονόματα στηλών (όπως στο Excel)
+  function toV(k, r) {
+    const v = {};
+    for (const [g, c] of Object.entries(MAP[k].cols)) {
+      let x = r[c];
+      if (c === "action_date") x = isoToSerial(x);
+      else if (c === "is_primary") x = x ? "Ναι" : "Όχι";
+      else if (x === null || x === undefined) x = "";
+      else if (c === "sqm") x = Number(x);
+      v[g] = x;
+    }
+    return v;
+  }
+  function toDb(k, vals, keepBlank) {
+    const o = {};
+    for (const [g, x0] of Object.entries(vals)) {
+      const c = MAP[k].cols[g]; if (!c) continue;
+      let x = typeof x0 === "string" ? x0.trim() : x0;
+      if (x === "" || x === null || x === undefined) { if (keepBlank) o[c] = c === "is_primary" ? false : null; continue; }
+      if (c === "action_date") x = typeof x === "number" ? serialToISO(x) : x;
+      else if (c === "is_primary") x = x === true || x === "Ναι";
+      else if (NUMS.has(c)) { const n = Number(x); if (isNaN(n)) throw new Error(`Το «${g}» θέλει αριθμό.`); x = n; }
+      else x = String(x);
+      o[c] = x;
+    }
+    return o;
+  }
+  function dbErr(error) {
+    const m = String(error && (error.message || error) || "");
+    if (error && error.code === "23505") return new Error(m.includes("companies_name") ? "Υπάρχει ήδη εταιρεία με αυτό το όνομα." : m.includes("leads") ? "Υπάρχει ήδη lead για αυτή την εταιρεία και χρονιά." : "Η εγγραφή υπάρχει ήδη.");
+    if (/fetch|network|Failed/i.test(m)) return new Error("Δεν υπάρχει σύνδεση με τη βάση. Ελέγξτε το internet και ξαναδοκιμάστε.");
+    if (/JWT|expired|not authorized|permission|row-level/i.test(m)) return new Error("Η σύνδεσή σας έληξε ή δεν έχετε δικαίωμα. Αποσυνδεθείτε και ξανασυνδεθείτε.");
+    return new Error("Σφάλμα βάσης: " + m);
+  }
+  const ok = ({ data, error }) => { if (error) throw dbErr(error); return data; };
+
+  // ---------- φόρτωση ----------
+  async function fetchAll(table, order) {
+    const out = [];
+    for (let from = 0; ; from += 1000) {
+      const data = ok(await sb.from(table).select("*").order(order).range(from, from + 999));
+      out.push(...data); if (data.length < 1000) break;
+    }
+    return out;
+  }
+  async function load() {
+    const [E, L, A, P, Ls] = await Promise.all([fetchAll("companies", "code"), fetchAll("leads", "id"), fetchAll("actions", "id"), fetchAll("contacts", "id"), fetchAll("lists", "position")]);
+    rows = {
+      E: E.map(r => ({ id: r.code, v: toV("E", r) })), L: L.map(r => ({ id: r.id, v: toV("L", r) })),
+      A: A.map(r => ({ id: r.id, v: toV("A", r) })), P: P.map(r => ({ id: r.id, v: toV("P", r) }))
+    };
+    const lists = {};
+    for (const r of Ls) { (lists[r.list_name] = lists[r.list_name] || Array(25).fill(""))[r.position] = r.value; }
+    S = { lists };
+    version++;
+  }
+
+  // ---------- αναζητήσεις ----------
+  const codeOf = r => parseCode(r.v["Επιλογή εταιρείας"]);
+  function findCompany(input) {
+    const code = parseCode(input);
+    if (code) { const r = rows.E.find(r => r.id === code); if (r) return r; }
+    const n = norm(input); if (n === "") return null;
+    return rows.E.find(r => norm(r.v["Εταιρεία"]) === n) || null;
+  }
+  const findLead = (code, year) => rows.L.find(r => codeOf(r) === code && Number(r.v["Χρονιά"]) === year) || null;
+  function latestYear(code) { let b = 0; for (const r of rows.L) if (codeOf(r) === code) b = Math.max(b, Number(r.v["Χρονιά"]) || 0); return b; }
+  const listVal = (h, i) => (S.lists[h] || [])[i] || "";
+
+  const ins = async (k, vals) => ok(await sb.from(MAP[k].table).insert(toDb(k, vals)).select().single());
+  const upd = async (k, id, obj) => { if (Object.keys(obj).length) ok(await sb.from(MAP[k].table).update(obj).eq(MAP[k].id, id)); };
+
+  // ---------- 1. Νέο lead ----------
+  async function newLead(f) {
+    const tx = k => String(f[k] ?? "").trim();
+    const input = tx("company"); if (input === "") throw new Error("Συμπληρώστε την «Εταιρεία».");
+    const year = num(f.year); if (!year) throw new Error("Συμπληρώστε τη «Χρονιά».");
+    let co = findCompany(input);
+    if (!co && parseCode(input)) throw new Error(`Δεν βρέθηκε εταιρεία με κωδικό ${parseCode(input)}.`);
+    const name = co ? String(co.v["Εταιρεία"]) : input.replace(/\s+/g, " ");
+    if (co && findLead(co.id, year)) throw new Error(`Υπάρχει ήδη lead για «${name}» το ${year}. Για νέα κίνηση χρησιμοποιήστε τη φόρμα «Νέα ενέργεια».`);
+    const when = num(f.adate) || today();
+    if (when > today()) throw new Error("Η ημερομηνία της ενέργειας είναι στο μέλλον – ελέγξτε τη χρονιά.");
+    const info = { "Κλάδος": tx("sector"), "Χώρα": tx("country"), "FG/RET": tx("fgret"), "Tellody": tx("tellody") };
+    const what = [];
+    let code;
+    if (!co) { const r = await ins("E", { ...info, "Εταιρεία": name }); code = r.code; what.push(`νέα εταιρεία (κωδ. ${code})`); }
+    else {
+      code = co.id; const fill = {};
+      for (const h of Object.keys(info)) if (info[h] !== "" && isBlank(co.v[h])) fill[h] = info[h];
+      await upd("E", code, toDb("E", fill));
+    }
+    const cname = tx("cname"), cphone = tx("cphone"), cemail = tx("cemail");
+    if (cname || cphone || cemail) {
+      const mine = rows.P.filter(r => codeOf(r) === code);
+      if (!(cname && mine.some(r => norm(r.v["Ονοματεπώνυμο"]) === norm(cname)))) {
+        await ins("P", { "Επιλογή εταιρείας": code, "Ονοματεπώνυμο": cname || "Γενικά στοιχεία", "Θέση": tx("crole"), "Τηλέφωνο": cphone, "Email": cemail, "Κύρια επαφή": mine.length ? "Όχι" : "Ναι" });
+        what.push("επαφή");
+      }
+    }
+    const handler = tx("handler");
+    await ins("L", { "Επιλογή εταιρείας": code, "Χρονιά": year, "Προέλευση": tx("source"), "Χειριστής": handler, "Πορεία ενδιαφέροντος": tx("stage"), "Χορηγία": tx("sponsor"), "Hall": tx("hall"), "Τ.μ.": num(f.sqm) || "" });
+    what.push(`lead ${year}`);
+    const atype = tx("atype"), adesc = tx("adesc");
+    if (atype || adesc) {
+      await ins("A", { "Ημερομηνία": when, "Επιλογή εταιρείας": code, "Χρονιά lead": year, "Τύπος ενέργειας": atype || "Σχόλιο", "Περιγραφή": adesc || "Νέο lead", "Χειριστής": handler });
+      what.push("ενέργεια");
+    }
+    await load();
+    return { code, msg: `Αποθηκεύτηκε «${name}»: ${what.join(", ")}.` };
+  }
+
+  // ---------- 2. Νέα ενέργεια / ενημέρωση lead ----------
+  async function newAction(f) {
+    const tx = k => String(f[k] ?? "").trim();
+    const input = tx("company"); if (input === "") throw new Error("Διαλέξτε «Εταιρεία».");
+    const desc = tx("desc"); const type = tx("type") || (desc !== "" ? "Σχόλιο" : "");
+    if (type !== "" && desc === "") throw new Error("Γράψτε «Περιγραφή» (ή αφήστε κενό και τον «Τύπο» για να αλλάξετε μόνο το lead).");
+    const co = findCompany(input);
+    if (!co) throw new Error(`Η εταιρεία «${input}» δεν υπάρχει. Διαλέξτε από τη λίστα ή χρησιμοποιήστε τη φόρμα «Νέο lead».`);
+    const name = String(co.v["Εταιρεία"]), code = co.id;
+    const year = num(f.year) || latestYear(code);
+    if (!year) throw new Error(`Η «${name}» δεν έχει lead. Ανοίξτε πρώτα lead με τη φόρμα «Νέο lead».`);
+    const lead = findLead(code, year); if (!lead) throw new Error(`Δεν υπάρχει lead για «${name}» το ${year}.`);
+    const handler = tx("handler") || String(lead.v["Χειριστής"] ?? "");
+    const when = num(f.date) || today();
+    if (when > today()) throw new Error("Η ημερομηνία είναι στο μέλλον – ελέγξτε τη χρονιά.");
+    const u = { "Πορεία ενδιαφέροντος": tx("stage"), "Χορηγία": tx("sponsor"), "Λόγος ακύρωσης": tx("reason"), "Χειριστής": tx("newhandler"), "Hall": tx("hall"), "Τ.μ.": num(f.sqm) || "" };
+    const changed = Object.keys(u).filter(h => u[h] !== "");
+    if (desc === "" && !changed.length) throw new Error("Δεν υπάρχει τίποτα να αποθηκευτεί: γράψτε ενέργεια ή διαλέξτε κάτι στο «Ενημέρωση lead».");
+    if (desc !== "") await ins("A", { "Ημερομηνία": when, "Επιλογή εταιρείας": code, "Χρονιά lead": year, "Τύπος ενέργειας": type, "Περιγραφή": desc, "Χειριστής": handler });
+    await upd("L", lead.id, toDb("L", u));
+    const stage = u["Πορεία ενδιαφέροντος"] || lead.v["Πορεία ενδιαφέροντος"], reason = u["Λόγος ακύρωσης"] || lead.v["Λόγος ακύρωσης"];
+    const note = norm(stage).indexOf("ακύρωση") === 0 && isBlank(reason) ? " Συμπληρώστε και «Λόγο ακύρωσης»." : "";
+    await load();
+    return { code, warn: note !== "", msg: (desc !== "" ? `Αποθηκεύτηκε ενέργεια για «${name}» (${year})` + (changed.length ? ` · ενημερώθηκαν: ${changed.join(", ")}` : "")
+      : `Ενημερώθηκε το lead «${name}» (${year}) χωρίς ενέργεια: ${changed.join(", ")}`) + "." + note };
+  }
+
+  // ---------- 3. Νέα επαφή ----------
+  async function newContact(f) {
+    const tx = k => String(f[k] ?? "").trim();
+    const input = tx("company"), name = tx("name");
+    if (input === "") throw new Error("Διαλέξτε «Εταιρεία».");
+    if (name === "") throw new Error("Γράψτε «Ονοματεπώνυμο».");
+    const co = findCompany(input); if (!co) throw new Error(`Η εταιρεία «${input}» δεν υπάρχει. Χρησιμοποιήστε τη φόρμα «Νέο lead».`);
+    const cname = String(co.v["Εταιρεία"]), code = co.id;
+    const mine = rows.P.filter(r => codeOf(r) === code);
+    if (mine.some(r => norm(r.v["Ονοματεπώνυμο"]) === norm(name))) throw new Error(`Η επαφή «${name}» υπάρχει ήδη στην «${cname}».`);
+    const choice = tx("primary"), primary = mine.length === 0 || choice.indexOf("Ναι") === 0;
+    let replaced = 0;
+    if (primary && choice.indexOf("αντί") >= 0) {
+      replaced = mine.filter(r => r.v["Κύρια επαφή"] === "Ναι").length;
+      if (replaced) ok(await sb.from("contacts").update({ is_primary: false }).eq("company_code", code).eq("is_primary", true));
+    }
+    await ins("P", { "Επιλογή εταιρείας": code, "Ονοματεπώνυμο": name, "Θέση": tx("role"), "Τηλέφωνο": tx("phone"), "Email": tx("email"), "Κύρια επαφή": primary ? "Ναι" : "Όχι", "Σημειώσεις": tx("notes") });
+    await load();
+    return { code, msg: `Προστέθηκε η επαφή «${name}» στην «${cname}»` + (primary ? (replaced ? " ως η νέα κύρια επαφή (η παλιά έγινε «Όχι»)." : " ως κύρια επαφή.") : ".") };
+  }
+
+  // ---------- 4. Διαγραφή ----------
+  const autoYear = r => num(r.v["Χρονιά lead"]) || latestYear(codeOf(r));
+  function deletePreview(input, year) {
+    const co = findCompany(input); if (!co) return null; year = num(year);
+    return { leads: rows.L.filter(r => codeOf(r) === co.id && (!year || Number(r.v["Χρονιά"]) === year)).length,
+      actions: rows.A.filter(r => codeOf(r) === co.id && (!year || autoYear(r) === year)).length,
+      contacts: year ? 0 : rows.P.filter(r => codeOf(r) === co.id).length };
+  }
+  async function remove(f) {
+    const input = String(f.company || "").trim();
+    if (input === "") throw new Error("Διαλέξτε «Εταιρεία».");
+    if (!f.confirm) throw new Error("Για ασφάλεια επιβεβαιώστε «ΝΑΙ – οριστική διαγραφή».");
+    const co = findCompany(input); if (!co) throw new Error(`Η εταιρεία «${input}» δεν βρέθηκε.`);
+    const name = String(co.v["Εταιρεία"]), code = co.id, year = num(f.year), p = deletePreview(input, year);
+    if (year) {
+      if (!p.leads) throw new Error(`Η «${name}» δεν έχει lead το ${year} – δεν σβήστηκε τίποτα.`);
+      const ids = rows.A.filter(r => codeOf(r) === code && autoYear(r) === year).map(r => r.id);
+      for (let i = 0; i < ids.length; i += 200) ok(await sb.from("actions").delete().in("id", ids.slice(i, i + 200)));
+      ok(await sb.from("leads").delete().eq("company_code", code).eq("year", year));
+    } else ok(await sb.from("companies").delete().eq("code", code));   // leads, ενέργειες, επαφές σβήνονται μαζί (cascade)
+    await load();
+    return { code: year ? code : 0, msg: year ? `Διαγράφηκε το lead ${year} της «${name}» και ${p.actions} ενέργειες του. Η εταιρεία και οι επαφές της έμειναν.`
+      : `Διαγράφηκε η εταιρεία «${name}» μαζί με ${p.leads} leads, ${p.actions} ενέργειες και ${p.contacts} επαφές.` };
+  }
+
+  // ---------- 5. Νέος χειριστής / τιμή λίστας ----------
+  async function addListValue(header, value) {
+    const v = String(value || "").trim().replace(/\s+/g, " ");
+    if (!v) throw new Error(header === "Χειριστής" ? "Γράψτε το ονοματεπώνυμο του νέου χειριστή." : "Γράψτε την τιμή.");
+    const list = S.lists[header] || Array(25).fill("");
+    if (list.map(norm).includes(norm(v))) throw new Error(`Το «${v}» υπάρχει ήδη στη λίστα.`);
+    const free = list.findIndex(isBlank); if (free < 0) throw new Error(`Η λίστα «${header}» είναι γεμάτη (25).`);
+    ok(await sb.from("lists").insert({ list_name: header, position: free, value: v }));
+    await load();
+    return { msg: header === "Χειριστής" ? `Προστέθηκε ο χειριστής «${v}».` : `Προστέθηκε «${v}» στη λίστα «${header}».` };
+  }
+  async function removeListValue(header, value) {
+    ok(await sb.from("lists").delete().eq("list_name", header).eq("value", value));
+    await load();
+    return { msg: `Αφαιρέθηκε «${value}» από τη λίστα «${header}».` };
+  }
+
+  // ---------- 7. Μετονομασία ----------
+  async function rename(input, newName) {
+    const nn = String(newName || "").trim().replace(/\s+/g, " ");
+    if (String(input || "").trim() === "") throw new Error("Γράψτε τον κωδικό ή το τρέχον όνομα της εταιρείας.");
+    if (nn === "") throw new Error("Γράψτε το νέο όνομα.");
+    const co = findCompany(/^\s*\d+\s*$/.test(input) ? Number(input) : input); if (!co) throw new Error(`Δεν βρέθηκε εταιρεία «${input}».`);
+    const dup = rows.E.find(r => r !== co && norm(r.v["Εταιρεία"]) === norm(nn));
+    if (dup) throw new Error(`Υπάρχει ήδη άλλη εταιρεία με όνομα «${nn}» (κωδ. ${dup.id}).`);
+    const old = co.v["Εταιρεία"];
+    await upd("E", co.id, { name: nn }); await load();
+    return { code: co.id, msg: `Η «${old}» μετονομάστηκε σε «${nn}» – άλλαξε παντού.` };
+  }
+
+  // ---------- επεξεργασία / σβήσιμο μίας εγγραφής ----------
+  const row = (k, id) => (rows[k].find(r => r.id === id) || { v: {} }).v;
+  async function editRow(k, id, vals) {
+    const cur = row(k, id), ch = {};
+    for (const h of Object.keys(vals)) {
+      if (!MAP[k].cols[h] || ["Επιλογή εταιρείας", "Κωδ.", "Εταιρεία"].includes(h)) continue;
+      if (String(vals[h] ?? "").trim() !== String(cur[h] ?? "").trim()) ch[h] = vals[h];
+    }
+    await upd(k, id, toDb(k, ch, true)); await load();
+  }
+  async function removeRow(k, id) { ok(await sb.from(MAP[k].table).delete().eq(MAP[k].id, id)); await load(); }
+
+  // ---------- υπολογισμένα πεδία (ό,τι έκαναν οι τύποι του Excel) ----------
+  let cache = null, cacheV = -1;
+  function derive() {
+    if (cacheV === version) return cache;
+    const comp = new Map();
+    for (const r of rows.E) comp.set(r.id, { i: r.id, code: r.id, name: String(r.v["Εταιρεία"]), v: r.v, contacts: [], leads: [], actions: [] });
+    for (const r of rows.P) { const c = comp.get(codeOf(r)); if (c) c.contacts.push({ i: r.id, v: r.v }); }
+    for (const c of comp.values()) {
+      const prim = c.contacts.filter(p => p.v["Κύρια επαφή"] === "Ναι"), src = prim.length ? prim : c.contacts.slice(0, 1);
+      const j = h => src.map(p => String(p.v[h] ?? "")).filter(Boolean).join(" / ");
+      c.person = j("Ονοματεπώνυμο"); c.phone = j("Τηλέφωνο"); c.email = j("Email");
+    }
+    const leads = [];
+    for (const r of rows.L) {
+      const code = codeOf(r), co = comp.get(code);
+      const l = { i: r.id, code, year: num(r.v["Χρονιά"]), v: r.v, co, name: co ? co.name : "?", acts: [], last: 0, lastDesc: "" };
+      leads.push(l); if (co) co.leads.push(l);
+    }
+    const leadBy = new Map(leads.map(l => [l.code + "|" + l.year, l]));
+    const maxYear = new Map(); for (const l of leads) maxYear.set(l.code, Math.max(maxYear.get(l.code) || 0, l.year));
+    const acts = [];
+    for (const r of rows.A) {
+      const c = codeOf(r), y = num(r.v["Χρονιά lead"]) || maxYear.get(c) || 0;
+      const a = { i: r.id, code: c, year: y, date: num(r.v["Ημερομηνία"]), type: String(r.v["Τύπος ενέργειας"] ?? ""), desc: String(r.v["Περιγραφή"] ?? ""), handler: String(r.v["Χειριστής"] ?? ""), name: comp.has(c) ? comp.get(c).name : "?" };
+      acts.push(a); if (comp.has(c)) comp.get(c).actions.push(a);
+      const l = leadBy.get(c + "|" + y); if (l) { l.acts.push(a); if (a.date && a.date >= l.last) { l.last = a.date; l.lastDesc = a.desc; } }
+    }
+    const win = listVal("Πορεία ενδιαφέροντος", 5), lost = listVal("Πορεία ενδιαφέροντος", 6), spo = [listVal("Χορηγία", 0), listVal("Χορηγία", 1)], sponsor = listVal("Χορηγία", 2);
+    for (const l of leads) {
+      const st = String(l.v["Πορεία ενδιαφέροντος"] ?? ""), sp = String(l.v["Χορηγία"] ?? "");
+      l.stage = st; l.sponsor = sp; l.handler = String(l.v["Χειριστής"] ?? "");
+      l.open = (st === "" && sp === "") || (st !== "" && st !== win && st !== lost) || (sp !== "" && spo.includes(sp));
+      const p = leadBy.get(l.code + "|" + (l.year - 1));
+      l.prevExhibitor = p && (p.v["Πορεία ενδιαφέροντος"] === win || p.v["Χορηγία"] === sponsor) ? "Ναι" : "Όχι";
+      l.won = st === win; l.lost = st === lost;
+    }
+    cache = { comp, leads, acts, leadBy }; cacheV = version; return cache;
+  }
+
+  return {
+    init(client) { sb = client; }, load, derive, newLead, newAction, newContact, remove, deletePreview, addListValue, removeListValue, rename, editRow, removeRow, row,
+    findCompany, parseCode, today, norm, latestYear, get S() { return S; }, get version() { return version; }, get rows() { return rows; }
+  };
+})();
+
+</script>
+<script>
+{
+const $ = s => document.querySelector(s);
+const esc = v => String(v === null || v === undefined ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtD = n => { if (!n || typeof n !== "number") return n ? String(n) : ""; const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 864e5); return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`; };
+const toInputDate = n => { const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 864e5); return d.toISOString().slice(0, 10); };
+const fromInputDate = s => { if (!s) return 0; const [y, m, d] = s.split("-").map(Number); return Math.floor(Date.UTC(y, m - 1, d) / 864e5) + 25569; };
+const LS = { get(k, d) { try { const v = localStorage.getItem("leadscrm:" + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("leadscrm:" + k, JSON.stringify(v)); } catch (e) {} } };
+
+const ui = { view: "track", loaded: false, email: "", live: "", year: 0, handler: LS.get("handler", "Όλοι"), show: "open", q: "", stage: "",
+  me: LS.get("me", ""), orange: 0, red: 0, cols: LS.get("cols", null), drawer: 0, cq: "", aq: "", ay: "", ah: "", at: "", sy: 0 };
+const ALLCOLS = {
+  "Κατάσταση": l => l._st, "Εταιρεία": l => l.name, "Χειριστής": l => l.handler, "Πορεία": l => l.stage, "Χορηγία": l => l.sponsor,
+  "Τελευταία επαφή": l => fmtD(l.last), "Τι έγινε τελευταία": l => l.lastDesc, "Επαφή": l => l.co ? l.co.person : "", "Τηλέφωνο": l => l.co ? l.co.phone : "",
+  "Email": l => l.co ? l.co.email : "", "Προέλευση": l => l.v["Προέλευση"], "Τ.μ.": l => l.v["Τ.μ."], "Χρονιά": l => l.year, "Κλάδος": l => l.co ? l.co.v["Κλάδος"] : "",
+  "Λόγος ακύρωσης": l => l.v["Λόγος ακύρωσης"], "Hall": l => l.v["Hall"], "Αριθμός Stand": l => l.v["Αριθμός Stand"], "Εκθέτης προηγ. χρονιάς": l => l.prevExhibitor,
+  "Σημειώσεις": l => l.v["Σημειώσεις"], "Ιστορικό ενεργειών": l => l.acts.map(a => `${fmtD(a.date)} ${a.type ? "[" + a.type + "] " : ""}${a.desc}`).join("\n"), "Αρχικά σχόλια List": l => l.v["Αρχικά σχόλια List"]
+};
+const DEFCOLS = ["Κατάσταση", "Εταιρεία", "Χειριστής", "Πορεία", "Χορηγία", "Τελευταία επαφή", "Τι έγινε τελευταία", "Επαφή", "Τηλέφωνο", "Email", "Προέλευση", "Τ.μ."];
+if (!Array.isArray(ui.cols) || !ui.cols.length) ui.cols = DEFCOLS.slice();
+ui.cols = ui.cols.filter(c => ALLCOLS[c]);
+
+const list = h => ((Core.S.lists || {})[h] || []).filter(v => String(v).trim() !== "");
+function toast(msg, err) { const t = $("#toast"); t.textContent = (err ? "⚠️ " : "✅ ") + msg; t.className = "toast on" + (err ? " err" : ""); clearTimeout(t._h); t._h = setTimeout(() => t.className = "toast", err ? 7000 : 4500); }
+
+// ---------- σύνδεση με τη βάση ----------
+const SUPA_URL = "https://qyhkdyewdqrbreebmacn.supabase.co";
+const SUPA_KEY = "sb_publishable_OvMExg_PKnJfSh7CP8hIsQ_Mg0oowyG";
+const sb = window.supabase ? window.supabase.createClient(SUPA_URL, SUPA_KEY) : null;
+if (sb) Core.init(sb);
+let channel = null, reloadT = 0;
+async function startApp(session) {
+  ui.email = session.user.email || "";
+  try { await Core.load(); } catch (e) { toast(e.message, true); }
+  ui.loaded = true;
+  const ys = Core.derive().leads.map(l => l.year);
+  ui.year = LS.get("year", 0) || Math.max(...ys, new Date().getFullYear());
+  ui.sy = ui.year;
+  ui.orange = LS.get("orange", 7); ui.red = LS.get("red", 21);
+  if (!ui.me) { const h = list("Χειριστής").find(h => !h.includes(",") && Core.norm(h).split(" ")[0] === Core.norm(ui.email).split(/[.@_]/)[0]); if (h) ui.me = h; }
+  refreshDatalist(); render();
+  if (!channel) {
+    channel = sb.channel("crm-live").on("postgres_changes", { event: "*", schema: "public" }, () => { clearTimeout(reloadT); reloadT = setTimeout(reloadData, 700); })
+      .subscribe(st => { ui.live = st === "SUBSCRIBED" ? "on" : ""; const d = $("#liveDot"); if (d) d.dataset.on = ui.live; });
+  }
+}
+async function reloadData() {
+  try { await Core.load(); refreshDatalist(); rerenderAll(); } catch (e) { /* σιωπηλά: θα ξαναδοκιμάσει στην επόμενη αλλαγή */ }
+}
+function rerenderAll() {
+  if (!ui.loaded) return;
+  const ae = document.activeElement, id = ae && ae.id, pos = ae && ae.selectionStart;
+  render();
+  if (ui.drawer) openDrawer(ui.drawer);
+  if (id && $("#" + id) && !$("#modal").contains(ae)) { const el = $("#" + id); el.focus(); try { if (pos != null) el.setSelectionRange(pos, pos); } catch (e) {} }
+}
+async function boot() {
+  if (!sb) { $("#app").innerHTML = `<div class="welcome"><h2>Δεν φορτώθηκε η εφαρμογή</h2><p>Χρειάζεται σύνδεση στο internet. Ανανεώστε τη σελίδα.</p></div>`; return; }
+  const { data } = await sb.auth.getSession();
+  if (data && data.session) startApp(data.session); else render();
+  sb.auth.onAuthStateChange((ev, session) => {
+    if (ev === "SIGNED_OUT") { ui.loaded = false; closeDrawer(); render(); }
+  });
+}
+async function exportExcel() {
+  if (!window.XLSX) return toast("Η εξαγωγή χρειάζεται σύνδεση στο internet.", true);
+  const d = Core.derive(), wb = XLSX.utils.book_new();
+  const add = (name, rows) => { const ws = XLSX.utils.json_to_sheet(rows); ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.min(50, Math.max(10, k.length + 2)) })); XLSX.utils.book_append_sheet(wb, ws, name); };
+  const dt = n => n ? new Date(Date.UTC(1899, 11, 30) + n * 864e5) : "";
+  add("Εταιρείες", [...d.comp.values()].map(c => ({ "Κωδ.": c.code, "Εταιρεία": c.name, "Κλάδος": c.v["Κλάδος"], "Χώρα": c.v["Χώρα"], "FG/RET": c.v["FG/RET"], "Contact Person": c.person, "Τηλέφωνο": c.phone, "Email": c.email, "Αρ. επαφών": c.contacts.length, "Tellody": c.v["Tellody"], "Σύνδεσμος αρχείων": c.v["Σύνδεσμος αρχείων"], "Αναγνωριστικό List": c.v["Αναγνωριστικό List"], "Χρονιές ως lead": c.leads.length })));
+  add("Leads", d.leads.map(l => ({ "Κωδ.": l.code, "Εταιρεία": l.name, "Χρονιά": l.year, "Κλάδος": l.co ? l.co.v["Κλάδος"] : "", "Contact Person": l.co ? l.co.person : "", "Τηλέφωνο": l.co ? l.co.phone : "", "Email": l.co ? l.co.email : "",
+    "Προέλευση": l.v["Προέλευση"], "Χειριστής": l.handler, "Πορεία ενδιαφέροντος": l.stage, "Χορηγία": l.sponsor, "Λόγος ακύρωσης": l.v["Λόγος ακύρωσης"], "Hall": l.v["Hall"], "Αριθμός Stand": l.v["Αριθμός Stand"], "Τ.μ.": l.v["Τ.μ."],
+    "Εκθέτης προηγ. χρονιάς": l.prevExhibitor, "Τελευταία ενέργεια": dt(l.last), "Τι έγινε τελευταία": l.lastDesc, "Σημειώσεις": l.v["Σημειώσεις"], "Ιστορικό ενεργειών": ALLCOLS["Ιστορικό ενεργειών"](l), "Αρχικά σχόλια List": l.v["Αρχικά σχόλια List"] })));
+  add("Ενέργειες", d.acts.map(a => ({ "Ημερομηνία": dt(a.date), "Κωδ.": a.code, "Εταιρεία": a.name, "Χρονιά lead": a.year, "Τύπος ενέργειας": a.type, "Περιγραφή": a.desc, "Χειριστής": a.handler })));
+  add("Επαφές", Core.rows.P.map(p => ({ "Κωδ.": p.v["Επιλογή εταιρείας"], "Εταιρεία": (d.comp.get(p.v["Επιλογή εταιρείας"]) || {}).name || "", "Ονοματεπώνυμο": p.v["Ονοματεπώνυμο"], "Θέση": p.v["Θέση"], "Τηλέφωνο": p.v["Τηλέφωνο"], "Email": p.v["Email"], "Κύρια επαφή": p.v["Κύρια επαφή"], "Σημειώσεις": p.v["Σημειώσεις"] })));
+  const L = Core.S.lists, keys = Object.keys(L), set = [];
+  for (let i = 0; i < 25; i++) { const r = {}; keys.forEach(k => r[k] = L[k][i] || ""); if (Object.values(r).some(Boolean)) set.push(r); }
+  add("Ρυθμίσεις", set);
+  const now = new Date(), stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  XLSX.writeFile(wb, `Leads CRM ${stamp}.xlsx`, { cellDates: true });
+  toast("Το αντίγραφο Excel κατέβηκε.");
+}
+function after(res) { refreshDatalist(); render(); if (ui.drawer) openDrawer(ui.drawer); if (res && res.msg) toast(res.msg, res.warn); }
+
+function refreshDatalist() {
+  const d = Core.derive();
+  $("#dl-co").innerHTML = [...d.comp.values()].sort((a, b) => a.name.localeCompare(b.name, "el")).map(c => `<option value="${esc(c.code + " · " + c.name)}"></option>`).join("");
+}
+
+// ---------- απόδοση ----------
+function render() {
+  const app = $("#app");
+  if (!ui.loaded) { app.innerHTML = welcomeHTML(); bindWelcome(); return; }
+  const views = [["track", "Παρακολούθηση"], ["companies", "Εταιρείες"], ["history", "Ενέργειες"], ["summary", "Σύνοψη"], ["settings", "Ρυθμίσεις"]];
+  app.innerHTML = `
+  <header class="top"><h1>Leads CRM</h1><span class="file" title="${esc(ui.email)}"><i id="liveDot" class="live" data-on="${ui.live}"></i>${esc(ui.email)}</span><span class="sp"></span>
+    <button class="btn ghost" id="exportBtn">Εξαγωγή σε Excel</button>
+    <button class="btn ghost" id="logoutBtn">Αποσύνδεση</button></header>
+  <nav>${views.map(([k, l]) => `<button data-view="${k}" aria-current="${ui.view === k}">${l}</button>`).join("")}</nav>
+  <div class="acts">
+    <button class="btn pri" data-form="lead">+ Νέο lead</button><button class="btn" data-form="action">+ Ενέργεια / σχόλιο</button>
+    <button class="btn" data-form="contact">+ Επαφή</button><button class="btn" data-form="del">Διαγραφή</button>
+  </div>
+  <main id="view">${({ track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML })[ui.view]()}</main>`;
+  bindMain();
+}
+
+function welcomeHTML() {
+  return `<header class="top"><h1>Leads CRM</h1></header>
+  <div class="welcome"><h2>Σύνδεση</h2>
+  <p class="muted">Μπείτε με το email και τον κωδικό που σας έδωσε ο διαχειριστής.</p>
+  <form id="login" class="card" style="padding:18px"><div class="fg">
+    <label class="full">Email<input id="lgEmail" type="email" autocomplete="username" required></label>
+    <label class="full">Κωδικός<input id="lgPass" type="password" autocomplete="current-password" required></label></div>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:14px"><button class="btn pri" id="lgBtn">Σύνδεση</button><span class="msg" id="lgMsg"></span></div></form></div>`;
+}
+function bindWelcome() {
+  $("#login").onsubmit = async e => {
+    e.preventDefault(); const m = $("#lgMsg"), b = $("#lgBtn"); b.disabled = true; m.textContent = "Σύνδεση…"; m.className = "msg";
+    const { data, error } = await sb.auth.signInWithPassword({ email: $("#lgEmail").value.trim(), password: $("#lgPass").value });
+    b.disabled = false;
+    if (error) { m.textContent = "⚠️ " + (/invalid/i.test(error.message) ? "Λάθος email ή κωδικός." : error.message); m.className = "msg err"; return; }
+    m.textContent = ""; startApp(data.session);
+  };
+}
+
+// ---- Παρακολούθηση ----
+function trackRows() {
+  const d = Core.derive(), t = Core.today(), q = Core.norm(ui.q);
+  const byH = l => ui.handler === "Όλοι" || (ui.handler === "Χωρίς χειριστή" ? l.handler === "" : l.handler !== "" && Core.norm(l.handler).includes(Core.norm(ui.handler)));
+  const base = d.leads.filter(l => l.year === ui.year && byH(l));
+  const rows = base.filter(l => (ui.show === "all" || l.open) && (!ui.stage || l.stage === ui.stage) && (!q || Core.norm([l.name, l.co && l.co.person, l.co && l.co.phone, l.co && l.co.email, l.co && l.co.v["Κλάδος"], l.handler, l.stage, l.sponsor, l.v["Hall"], l.v["Αριθμός Stand"], l.v["Σημειώσεις"], l.v["Προέλευση"], l.v["Λόγος ακύρωσης"], l.lastDesc].join(" ")).includes(q)));
+  for (const l of rows) {
+    l._days = l.last ? t - Math.floor(l.last) : 99999;
+    if (!l.open) { l._cls = "k"; l._st = "✔ Κλειστό"; }
+    else if (l._days === 99999) { l._cls = "r"; l._st = "Καμία επαφή"; }
+    else if (l._days >= ui.red) { l._cls = "r"; l._st = `${l._days} ημ. χωρίς επαφή`; }
+    else if (l._days >= ui.orange) { l._cls = "a"; l._st = `${l._days} ημ. χωρίς επαφή`; }
+    else { l._cls = "g"; l._st = `πριν ${l._days} ημ.`; }
+  }
+  rows.sort((a, b) => (a.open ? 1e6 + (a.last || 0) : 5e6) - (b.open ? 1e6 + (b.last || 0) : 5e6) || a.i - b.i);
+  return { rows, base };
+}
+const yearsAll = () => { const s = new Set(list("Χρονιά").map(Number).filter(Boolean)); Core.derive().leads.forEach(l => l.year && s.add(l.year)); s.add(ui.year); return [...s].sort(); };
+const opt = (vals, cur, first) => (first !== undefined ? `<option value="">${esc(first)}</option>` : "") + vals.map(v => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(v)}</option>`).join("");
+function trackHTML() {
+  const { rows, base } = trackRows();
+  const open = rows.filter(l => l.open);
+  const k = { r: open.filter(l => l._days !== 99999 && l._days >= ui.red).length, n: open.filter(l => l._days === 99999).length,
+    a: open.filter(l => l._days >= ui.orange && l._days < ui.red).length, g: open.filter(l => l._days < ui.orange).length };
+  const stages = list("Πορεία ενδιαφέροντος");
+  const handlers = ["Όλοι", "Χωρίς χειριστή", ...list("Χειριστής").filter(h => !h.includes(","))];
+  return `<div class="filters">
+    <label>Χρονιά<select id="fYear">${opt(yearsAll(), ui.year)}</select></label>
+    <label>Χειριστής<select id="fHandler">${opt(handlers, ui.handler)}</select></label>
+    <label>Εμφάνιση<select id="fShow"><option value="open"${ui.show === "open" ? " selected" : ""}>Μόνο ανοιχτά</option><option value="all"${ui.show === "all" ? " selected" : ""}>Όλα</option></select></label>
+    <label style="flex:1;min-width:200px">Αναζήτηση<input id="fQ" type="search" value="${esc(ui.q)}" placeholder="εταιρεία, επαφή, τηλέφωνο, σημείωση…"></label>
+    <button class="btn" id="colBtn">Στήλες</button></div>
+  <div class="kpis">
+    <div class="kpi r"><b>${k.r}</b><span>Πάνω από ${ui.red} ημ. χωρίς επαφή</span></div>
+    <div class="kpi r"><b>${k.n}</b><span>Καμία επαφή ακόμα</span></div>
+    <div class="kpi a"><b>${k.a}</b><span>Θέλουν επαφή σύντομα (${ui.orange}+ ημ.)</span></div>
+    <div class="kpi g"><b>${k.g}</b><span>Πρόσφατη επαφή</span></div>
+    <div class="kpi"><b>${rows.length}</b><span>Σύνολο στη λίστα</span></div></div>
+  <div class="pipe"><span class="muted" style="align-self:center;font-size:13px">Pipeline ${ui.year}:</span>${stages.map(s => `<button class="chip" data-stage="${esc(s)}" aria-pressed="${ui.stage === s}">${esc(s)}<b>${base.filter(l => l.stage === s).length}</b></button>`).join("")}</div>
+  ${rows.length ? `<div class="scroll"><table class="stack"><thead><tr><th></th>${ui.cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
+  ${rows.map(l => `<tr class="${l.open && l._cls !== "g" ? l._cls : ""}" data-code="${l.code}"><td class="nw"><button class="btn sm pri" data-quick="${l.code}" data-year="${l.year}">+ Ενέργεια</button></td>${ui.cols.map(c => cellHTML(c, l)).join("")}</tr>`).join("")}
+  </tbody></table></div>` : `<div class="empty">Δεν υπάρχουν leads με αυτά τα φίλτρα.</div>`}`;
+}
+function cellHTML(c, l) {
+  const v = ALLCOLS[c](l);
+  if (c === "Κατάσταση") return `<td><span class="st"><i class="dot ${l._cls}"></i>${esc(v)}</span></td>`;
+  if (c === "Εταιρεία") return `<td><b>${esc(v)}</b></td>`;
+  if (c === "Τι έγινε τελευταία" || c === "Σημειώσεις") return `<td class="wide">${esc(v)}</td>`;
+  if (c === "Ιστορικό ενεργειών") return `<td class="pre">${esc(v)}</td>`;
+  if (c === "Τ.μ." || c === "Χρονιά") return `<td class="num">${esc(v)}</td>`;
+  if (c === "Τελευταία επαφή" || c === "Τηλέφωνο") return `<td class="nw">${esc(v)}</td>`;
+  return `<td>${esc(v)}</td>`;
+}
+function colPopover(anchor) {
+  document.querySelectorAll(".pop").forEach(p => p.remove());
+  const p = document.createElement("div"); p.className = "pop";
+  const draw = () => {
+    const order = [...ui.cols, ...Object.keys(ALLCOLS).filter(c => !ui.cols.includes(c))];
+    p.innerHTML = `<b style="display:block;margin-bottom:6px">Στήλες λίστας</b>` + order.map(c => {
+      const on = ui.cols.includes(c), fixed = c === "Κατάσταση" || c === "Εταιρεία";
+      return `<div><label><input type="checkbox" data-c="${esc(c)}"${on ? " checked" : ""}${fixed ? " disabled" : ""}>${esc(c)}</label>${on ? `<button data-up="${esc(c)}" aria-label="πάνω">↑</button><button data-dn="${esc(c)}" aria-label="κάτω">↓</button>` : ""}</div>`;
+    }).join("") + `<div style="margin-top:8px"><button class="btn sm" id="colReset" style="width:auto">Προεπιλογή</button></div>`;
+  };
+  draw();
+  p.onclick = e => {
+    const t = e.target, c = t.dataset.c || t.dataset.up || t.dataset.dn;
+    if (t.id === "colReset") ui.cols = DEFCOLS.slice();
+    else if (t.dataset.c !== undefined) ui.cols = t.checked ? [...ui.cols, c] : ui.cols.filter(x => x !== c);
+    else if (c) { const i = ui.cols.indexOf(c), j = t.dataset.up ? i - 1 : i + 1; if (j >= 0 && j < ui.cols.length) { [ui.cols[i], ui.cols[j]] = [ui.cols[j], ui.cols[i]]; } }
+    else return;
+    LS.set("cols", ui.cols); draw(); $("#view").innerHTML = trackHTML(); bindMain(true); document.body.appendChild(p);
+  };
+  const r = anchor.getBoundingClientRect();
+  p.style.top = (r.bottom + window.scrollY + 6) + "px"; p.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 310)) + "px";
+  document.body.appendChild(p);
+  setTimeout(() => document.addEventListener("click", function h(e) { if (!p.contains(e.target) && e.target !== anchor) { p.remove(); document.removeEventListener("click", h); } }), 0);
+}
+
+// ---- Εταιρείες ----
+function companiesHTML() {
+  const q = Core.norm(ui.cq);
+  const cs = [...Core.derive().comp.values()].filter(c => !q || Core.norm([c.code, c.name, c.person, c.phone, c.email, c.v["Κλάδος"], c.v["Χώρα"]].join(" ")).includes(q)).sort((a, b) => a.name.localeCompare(b.name, "el"));
+  return `<div class="filters"><label style="flex:1;min-width:220px">Αναζήτηση εταιρείας<input id="cQ" type="search" value="${esc(ui.cq)}" placeholder="όνομα, κωδικός, επαφή, κλάδος…"></label><span class="muted">${cs.length} εταιρείες</span></div>
+  <div class="scroll"><table class="stack"><thead><tr><th>Κωδ.</th><th>Εταιρεία</th><th>Κλάδος</th><th>Χώρα</th><th>Επαφή</th><th>Τηλέφωνο</th><th>Email</th><th>Χρονιές lead</th><th>Τελευταία χρονιά</th></tr></thead><tbody>
+  ${cs.map(c => `<tr data-code="${c.code}"><td class="num">${c.code}</td><td><b>${esc(c.name)}</b></td><td>${esc(c.v["Κλάδος"])}</td><td>${esc(c.v["Χώρα"])}</td><td>${esc(c.person)}</td><td class="nw">${esc(c.phone)}</td><td>${esc(c.email)}</td><td class="num">${c.leads.length}</td><td class="num">${c.leads.length ? Math.max(...c.leads.map(l => l.year)) : ""}</td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+
+// ---- Ενέργειες (ιστορικό) ----
+function historyHTML() {
+  const q = Core.norm(ui.aq);
+  const as = Core.derive().acts.filter(a => (!ui.ay || a.year === +ui.ay) && (!ui.ah || Core.norm(a.handler).includes(Core.norm(ui.ah))) && (!ui.at || a.type === ui.at) && (!q || Core.norm([a.name, a.desc, a.type, a.handler, fmtD(a.date)].join(" ")).includes(q)))
+    .sort((a, b) => b.date - a.date || b.i - a.i);
+  return `<div class="filters">
+    <label>Χρονιά lead<select id="aY">${opt(yearsAll(), ui.ay, "Όλες")}</select></label>
+    <label>Χειριστής<select id="aH">${opt(list("Χειριστής").filter(h => !h.includes(",")), ui.ah, "Όλοι")}</select></label>
+    <label>Τύπος<select id="aT">${opt(list("Τύπος ενέργειας"), ui.at, "Όλοι")}</select></label>
+    <label style="flex:1;min-width:200px">Αναζήτηση<input id="aQ" type="search" value="${esc(ui.aq)}" placeholder="εταιρεία, περιγραφή, ημερομηνία…"></label><span class="muted">${as.length} ενέργειες</span></div>
+  ${as.length ? `<div class="scroll"><table class="stack"><thead><tr><th>Ημερομηνία</th><th>Εταιρεία</th><th>Χρονιά</th><th>Τύπος</th><th>Περιγραφή</th><th>Χειριστής</th></tr></thead><tbody>
+  ${as.slice(0, 600).map(a => `<tr data-code="${a.code}"><td class="nw">${fmtD(a.date)}</td><td><b>${esc(a.name)}</b></td><td class="num">${a.year || ""}</td><td>${esc(a.type)}</td><td class="wide">${esc(a.desc)}</td><td>${esc(a.handler)}</td></tr>`).join("")}
+  </tbody></table></div>` : `<div class="empty">Καμία ενέργεια με αυτά τα φίλτρα.</div>`}`;
+}
+
+// ---- Σύνοψη ----
+function summaryHTML() {
+  const d = Core.derive(), Y = +ui.sy, t = Core.today();
+  const L = y => d.leads.filter(l => l.year === y), S = Core.S.lists;
+  const win = S["Πορεία ενδιαφέροντος"][5], lost = S["Πορεία ενδιαφέροντος"][6], sp = S["Χορηγία"];
+  const sum = a => a.reduce((s, l) => s + (Number(l.v["Τ.μ."]) || 0), 0);
+  const m = y => { const ls = L(y), ex = ls.filter(l => l.stage === win), ca = ls.filter(l => l.stage === lost);
+    return [ls.length, ls.filter(l => l.stage !== "" && l.stage !== win && l.stage !== lost).length, ex.length, ls.filter(l => l.sponsor === sp[2]).length,
+      ls.filter(l => l.sponsor === sp[0] || l.sponsor === sp[1]).length, ca.length,
+      ls.filter(l => (l.stage === win || l.sponsor === sp[2]) && l.prevExhibitor === "Ναι").length, sum(ex),
+      sum(ls.filter(l => l.stage === "Οικονομική πρόταση" || l.stage === "Αναμονή πρότασης")),
+      ex.length + ca.length ? Math.round(100 * ex.length / (ex.length + ca.length)) + "%" : "–",
+      d.acts.filter(a => a.year === y).length, ls.filter(l => !l.last).length]; };
+  const labels = ["Σύνολο leads", "Ανοιχτά leads περιπτέρου", "Εκθέτες (περίπτερο)", "Χορηγοί (κλεισμένοι)", "Χορηγίες σε εξέλιξη", "Ακυρώσεις (περίπτερο)",
+    "Εκθέτες/χορηγοί και την προηγ. χρονιά", "Τ.μ. εκθετών", "Τ.μ. σε ανοιχτές προτάσεις", "Ποσοστό μετατροπής (εκθέτες / κλειστά)", "Ενέργειες", "Leads χωρίς καμία ενέργεια"];
+  const a = m(Y), b = m(Y - 1);
+  const stages = list("Πορεία ενδιαφέροντος"), mx = Math.max(1, ...stages.map(s => L(Y).filter(l => l.stage === s).length));
+  const first = new Date(); const mStart = Math.floor(Date.UTC(first.getFullYear(), first.getMonth(), 1) / 864e5) + 25569;
+  const hs = list("Χειριστής").filter(h => !h.includes(","));
+  return `<div class="filters"><label>Χρονιά<select id="sY">${opt(yearsAll(), Y)}</select></label></div>
+  <div class="kpis">
+    <div class="kpi"><b>${a[0]}</b><span>Leads ${Y}</span></div><div class="kpi g"><b>${a[2]}</b><span>Εκθέτες</span></div>
+    <div class="kpi g"><b>${a[3]}</b><span>Χορηγοί</span></div><div class="kpi"><b>${a[7]}</b><span>Τ.μ. εκθετών</span></div>
+    <div class="kpi"><b>${d.acts.filter(x => x.date >= t - 6 && x.date <= t).length}</b><span>Ενέργειες τελευταίες 7 ημέρες</span></div>
+    <div class="kpi"><b>${d.acts.filter(x => x.date >= mStart && x.date <= t).length}</b><span>Ενέργειες τρέχοντος μήνα</span></div></div>
+  <div class="two"><div class="sec"><h3>Δείκτες</h3><div class="scroll"><table><thead><tr><th>Δείκτης</th><th style="text-align:right">${Y}</th><th style="text-align:right">${Y - 1}</th></tr></thead><tbody>
+    ${labels.map((l, i) => `<tr style="cursor:default"><td>${l}</td><td class="num"><b>${a[i]}</b></td><td class="num muted">${b[i]}</td></tr>`).join("")}</tbody></table></div></div>
+  <div class="sec"><h3>Πορεία ενδιαφέροντος ${Y}</h3><div class="bars"><div class="muted" style="font-size:12px"><span></span><span></span><span style="text-align:right">${Y}</span><span style="text-align:right">${Y - 1}</span><span style="text-align:right">Τ.μ.</span></div>
+    ${stages.map(s => { const n = L(Y).filter(l => l.stage === s).length; return `<div><span>${esc(s)}</span><span class="bar"><i style="width:${100 * n / mx}%"></i></span><b style="text-align:right">${n}</b><span class="muted" style="text-align:right">${L(Y - 1).filter(l => l.stage === s).length}</span><span style="text-align:right">${sum(L(Y).filter(l => l.stage === s)) || ""}</span></div>`; }).join("")}</div>
+    <h3 style="margin-top:20px">Ανά χειριστή (${Y})</h3><div class="scroll"><table><thead><tr><th>Χειριστής</th><th style="text-align:right">Leads</th><th style="text-align:right">Ανοιχτά</th><th style="text-align:right">Εκθέτες</th><th style="text-align:right">Ενέργειες 7 ημ.</th></tr></thead><tbody>
+    ${hs.map(h => { const ls = L(Y).filter(l => Core.norm(l.handler).includes(Core.norm(h))); return `<tr style="cursor:default"><td>${esc(h)}</td><td class="num">${ls.length}</td><td class="num">${ls.filter(l => l.open).length}</td><td class="num">${ls.filter(l => l.won).length}</td><td class="num">${d.acts.filter(x => Core.norm(x.handler).includes(Core.norm(h)) && x.date >= t - 6 && x.date <= t).length}</td></tr>`; }).join("")}</tbody></table></div></div></div>`;
+}
+
+// ---- Ρυθμίσεις ----
+function settingsHTML() {
+  const L = Core.S.lists;
+  return `<div class="two"><div class="sec"><h3>Εγώ & όρια χρωμάτων</h3><div class="card"><div class="fg">
+    <label>Είμαι ο/η (προεπιλογή χειριστή στις φόρμες)<select id="sMe">${opt(list("Χειριστής").filter(h => !h.includes(",")), ui.me, "—")}</select></label><span></span>
+    <label>Πορτοκαλί μετά από (ημέρες)<input id="sO" type="number" min="1" value="${ui.orange}"></label>
+    <label>Κόκκινο μετά από (ημέρες)<input id="sR" type="number" min="1" value="${ui.red}"></label></div></div></div>
+  <div class="sec"><h3>Νέος χειριστής</h3><div class="card"><p class="muted" style="margin-top:0;font-size:14px">Μπαίνει στη λίστα «Χειριστής» των Ρυθμίσεων. Η προσωπική του λίστα είναι η Παρακολούθηση με φίλτρο το όνομά του.</p>
+    <div class="fg"><label class="full">Ονοματεπώνυμο (όπως θα φαίνεται στη στήλη Χειριστής)<input id="newH" placeholder="π.χ. Maria Papadopoulou"></label></div>
+    <button class="btn pri" id="addH" style="margin-top:10px">Προσθήκη χειριστή</button>
+    <p class="muted" style="font-size:13px;margin-bottom:0">Για να μπαίνει στην εφαρμογή, δημιουργήστε του και λογαριασμό: Supabase → Authentication → Users → Add user.</p></div></div>
+  <div class="sec"><h3>Αλλαγή κωδικού</h3><div class="card"><div class="fg">
+    <label>Νέος κωδικός<input id="pw1" type="password" autocomplete="new-password"></label><label>Ξανά<input id="pw2" type="password" autocomplete="new-password"></label></div>
+    <button class="btn" id="pwBtn" style="margin-top:10px">Αλλαγή κωδικού</button></div></div></div>
+  <div class="sec"><h3>Λίστες επιλογών</h3><p class="muted" style="font-size:14px;margin-top:0">Στην «Πορεία ενδιαφέροντος» η 6η τιμή σημαίνει επιτυχία και η 7η απώλεια· στη «Χορηγία» οι 2 πρώτες = σε εξέλιξη, η 3η = κλεισμένη. Οι νέες τιμές μπαίνουν στην πρώτη κενή θέση και τις βλέπουν αμέσως όλοι.</p>
+  <div class="lists">${Object.keys(L).filter(h => h !== "Ναι/Όχι").map(h => `<div class="card"><b>${esc(h)}</b><ol>${L[h].filter(v => String(v).trim() !== "").map(v => `<li>${esc(v)}</li>`).join("")}</ol>
+    <div style="display:flex;gap:6px"><input data-listin="${esc(h)}" placeholder="νέα τιμή" style="flex:1;min-height:34px;padding:4px 8px"><button class="btn sm" data-listadd="${esc(h)}">Προσθήκη</button></div></div>`).join("")}</div></div>`;
+}
+
+// ---------- events ----------
+function bindMain(partial) {
+  const V = $("#view");
+  if (!partial) {
+    $("#exportBtn").onclick = exportExcel;
+    $("#logoutBtn").onclick = async () => { await sb.auth.signOut(); };
+    document.querySelectorAll("nav [data-view]").forEach(b => b.onclick = () => { ui.view = b.dataset.view; render(); });
+    document.querySelectorAll(".acts [data-form]").forEach(b => b.onclick = () => openForm(b.dataset.form, {}));
+  }
+  V.onclick = e => {
+    const q = e.target.closest("[data-quick]"); if (q) { e.stopPropagation(); return openForm("action", { company: codeLabel(+q.dataset.quick), year: q.dataset.year }); }
+    const st = e.target.closest("[data-stage]"); if (st) { ui.stage = ui.stage === st.dataset.stage ? "" : st.dataset.stage; return rerender(); }
+    if (e.target.id === "colBtn") return colPopover(e.target);
+    if (e.target.id === "addH") { busy(e.target, () => Core.addListValue("Χειριστής", $("#newH").value)); return; }
+    if (e.target.id === "pwBtn") { changePw(); return; }
+    const la = e.target.closest("[data-listadd]"); if (la) { const h = la.dataset.listadd; const inp = [...document.querySelectorAll("[data-listin]")].find(i => i.dataset.listin === h); busy(la, () => Core.addListValue(h, inp.value)); return; }
+    const tr = e.target.closest("tr[data-code]"); if (tr) openDrawer(+tr.dataset.code);
+  };
+  const on = (id, ev, fn) => { const el = $("#" + id); if (el) el[ev] = fn; };
+  on("fYear", "onchange", e => { ui.year = +e.target.value; LS.set("year", ui.year); ui.stage = ""; rerender(); });
+  on("fHandler", "onchange", e => { ui.handler = e.target.value; LS.set("handler", ui.handler); rerender(); });
+  on("fShow", "onchange", e => { ui.show = e.target.value; rerender(); });
+  on("fQ", "oninput", e => { ui.q = e.target.value; rerender("fQ"); });
+  on("cQ", "oninput", e => { ui.cq = e.target.value; rerender("cQ"); });
+  on("aQ", "oninput", e => { ui.aq = e.target.value; rerender("aQ"); });
+  on("aY", "onchange", e => { ui.ay = e.target.value; rerender(); });
+  on("aH", "onchange", e => { ui.ah = e.target.value; rerender(); });
+  on("aT", "onchange", e => { ui.at = e.target.value; rerender(); });
+  on("sY", "onchange", e => { ui.sy = +e.target.value; rerender(); });
+  on("sMe", "onchange", e => { ui.me = e.target.value; LS.set("me", ui.me); });
+  on("sO", "onchange", e => { ui.orange = Math.max(1, +e.target.value || 7); LS.set("orange", ui.orange); });
+  on("sR", "onchange", e => { ui.red = Math.max(1, +e.target.value || 21); LS.set("red", ui.red); });
+}
+function rerender(focusId) {
+  const pos = focusId && $("#" + focusId) ? $("#" + focusId).selectionStart : null;
+  const views = { track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML };
+  $("#view").innerHTML = views[ui.view](); bindMain(true);
+  if (focusId) { const el = $("#" + focusId); el.focus(); if (pos !== null) el.setSelectionRange(pos, pos); }
+}
+async function busy(btn, fn) {
+  btn.disabled = true;
+  try { after(await fn()); } catch (er) { toast(er.message, true); btn.disabled = false; }
+}
+async function changePw() {
+  const a = $("#pw1").value, b = $("#pw2").value;
+  if (a.length < 8) return toast("Ο κωδικός θέλει τουλάχιστον 8 χαρακτήρες.", true);
+  if (a !== b) return toast("Οι δύο κωδικοί δεν ταιριάζουν.", true);
+  const { error } = await sb.auth.updateUser({ password: a });
+  if (error) toast(error.message, true); else { $("#pw1").value = $("#pw2").value = ""; toast("Ο κωδικός άλλαξε."); }
+}
+
+// ---------- καρτέλα εταιρείας ----------
+const codeLabel = code => { const c = Core.derive().comp.get(code); return c ? `${c.code} · ${c.name}` : ""; };
+function openDrawer(code) {
+  const c = Core.derive().comp.get(code);
+  if (!c) { closeDrawer(); return; }
+  ui.drawer = code;
+  const dr = $("#drawer"), lbl = codeLabel(code);
+  const leads = c.leads.slice().sort((a, b) => b.year - a.year);
+  const acts = c.actions.slice().sort((a, b) => b.date - a.date || b.i - a.i);
+  const lf = (l, h) => esc(l.v[h]);
+  dr.innerHTML = `<div class="dh"><div style="display:flex;justify-content:space-between;gap:10px"><div><div style="font-size:13px;color:var(--lime)">Κωδ. ${c.code}</div><h2>${esc(c.name)}</h2></div><button class="x-close" id="dClose" aria-label="Κλείσιμο">×</button></div>
+    <div class="row"><button class="btn lime sm" data-f="action">+ Ενέργεια</button><button class="btn ghost sm" data-f="lead">+ Lead νέας χρονιάς</button><button class="btn ghost sm" data-f="contact">+ Επαφή</button><button class="btn ghost sm" data-f="rename">Μετονομασία</button><button class="btn ghost sm" data-f="del">Διαγραφή</button></div></div>
+  <div class="db">
+    <div class="sec"><h3>Στοιχεία <button class="btn sm" data-edit="E" data-i="${c.i}">Επεξεργασία</button></h3><div class="grid">
+      ${["Κλάδος", "Χώρα", "FG/RET", "Tellody", "Αναγνωριστικό List"].map(h => `<div><span>${h}</span>${esc(c.v[h]) || "—"}</div>`).join("")}
+      <div><span>Σύνδεσμος αρχείων</span>${/^https:\/\//.test(String(c.v["Σύνδεσμος αρχείων"])) ? `<a href="${esc(c.v["Σύνδεσμος αρχείων"])}" target="_blank" rel="noopener">άνοιγμα</a>` : esc(c.v["Σύνδεσμος αρχείων"]) || "—"}</div></div></div>
+    <div class="sec"><h3>Επαφές (${c.contacts.length})</h3>${c.contacts.map(p => `<div class="card"><div class="hd"><b>${esc(p.v["Ονοματεπώνυμο"])}${p.v["Κύρια επαφή"] === "Ναι" ? ' <span class="chip" style="padding:1px 8px">κύρια</span>' : ""}</b><span><button class="btn sm" data-edit="P" data-i="${p.i}">Επεξεργασία</button> <button class="btn sm" data-rm="P" data-i="${p.i}">Αφαίρεση</button></span></div>
+      <div class="grid">${["Θέση", "Τηλέφωνο", "Email", "Σημειώσεις"].filter(h => String(p.v[h] ?? "").trim()).map(h => `<div><span>${h}</span>${esc(p.v[h])}</div>`).join("")}</div></div>`).join("") || '<p class="muted">Καμία επαφή.</p>'}</div>
+    <div class="sec"><h3>Leads</h3>${leads.map(l => `<div class="card"><div class="hd"><b style="font-size:17px">${l.year}</b><span class="st"><i class="dot ${l.open ? "g" : "k"}"></i>${esc(l.stage || "—")}</span><span><button class="btn sm" data-f="action" data-year="${l.year}">+ Ενέργεια</button> <button class="btn sm" data-edit="L" data-i="${l.i}">Επεξεργασία</button></span></div>
+      <div class="grid"><div><span>Χειριστής</span>${esc(l.handler) || "—"}</div><div><span>Χορηγία</span>${esc(l.sponsor) || "—"}</div><div><span>Προέλευση</span>${lf(l, "Προέλευση") || "—"}</div>
+      <div><span>Hall / Stand</span>${lf(l, "Hall") || "—"}${l.v["Αριθμός Stand"] ? " · " + lf(l, "Αριθμός Stand") : ""}</div><div><span>Τ.μ.</span>${lf(l, "Τ.μ.") || "—"}</div><div><span>Τελευταία επαφή</span>${fmtD(l.last) || "καμία"}</div>
+      <div><span>Εκθέτης προηγ. χρονιάς</span>${l.prevExhibitor}</div>${l.v["Λόγος ακύρωσης"] ? `<div><span>Λόγος ακύρωσης</span>${lf(l, "Λόγος ακύρωσης")}</div>` : ""}
+      ${l.v["Σημειώσεις"] ? `<div style="grid-column:1/-1"><span>Σημειώσεις</span>${lf(l, "Σημειώσεις")}</div>` : ""}${l.v["Αρχικά σχόλια List"] ? `<div style="grid-column:1/-1"><span>Αρχικά σχόλια List</span>${lf(l, "Αρχικά σχόλια List")}</div>` : ""}</div></div>`).join("") || '<p class="muted">Κανένα lead.</p>'}</div>
+    <div class="sec"><h3>Ιστορικό ενεργειών (${acts.length})</h3><ul class="tl">${acts.map(a => `<li><span class="x"><button class="btn sm" data-edit="A" data-i="${a.i}">Αλλαγή</button><button class="btn sm" data-rm="A" data-i="${a.i}">Σβήσιμο</button></span>
+      <div class="m">${fmtD(a.date)} · ${a.year || ""} · ${esc(a.handler)}</div><div>${a.type ? `<b>${esc(a.type)}</b> · ` : ""}${esc(a.desc)}</div></li>`).join("") || '<p class="muted">Καμία ενέργεια.</p>'}</ul></div>
+  </div>`;
+  dr.classList.add("on"); $("#ov").classList.add("on");
+  dr.onclick = e => {
+    if (e.target.id === "dClose") return closeDrawer();
+    const f = e.target.closest("[data-f]"); if (f) return openForm(f.dataset.f, { company: lbl, year: f.dataset.year || "" });
+    const ed = e.target.closest("[data-edit]"); if (ed) return openForm("edit" + ed.dataset.edit, { i: +ed.dataset.i, company: lbl });
+    const rm = e.target.closest("[data-rm]"); if (rm) return askRemove(rm.dataset.rm, +rm.dataset.i, rm);
+  };
+}
+function closeDrawer() { ui.drawer = 0; $("#drawer").classList.remove("on"); $("#ov").classList.remove("on"); }
+$("#ov").onclick = closeDrawer;
+document.addEventListener("keydown", e => { if (e.key === "Escape") { if ($("#modal").classList.contains("on")) closeForm(); else if (ui.drawer) closeDrawer(); } });
+function askRemove(k, i, btn) {
+  if (btn.dataset.sure) { busy(btn, async () => { await Core.removeRow(k, i); return { msg: k === "A" ? "Η ενέργεια σβήστηκε." : "Η επαφή αφαιρέθηκε." }; }); return; }
+  btn.dataset.sure = "1"; btn.textContent = "Σίγουρα;"; btn.classList.add("danger");
+  setTimeout(() => { if (btn.isConnected) { delete btn.dataset.sure; btn.textContent = k === "A" ? "Σβήσιμο" : "Αφαίρεση"; btn.classList.remove("danger"); } }, 3500);
+}
+
+// ---------- φόρμες ----------
+const F = (name, label, type, o = {}) => ({ name, label, type, ...o });
+const sel = (name, label, listName, o) => F(name, label, "select", { list: listName, ...o });
+const FORMS = {
+  lead: { title: "Νέο lead / νέα εταιρεία", ok: "Αποθήκευση", hint: "Νέα εταιρεία ή παλιά εταιρεία για νέα χρονιά. Δημιουργεί εταιρεία (αν δεν υπάρχει), επαφή, lead και πρώτη ενέργεια.",
+    groups: [["Εταιρεία", [F("company", "Εταιρεία * (διαλέξτε ή γράψτε νέο όνομα)", "company", { full: 1 }), sel("sector", "Κλάδος", "Κλάδος"), F("country", "Χώρα", "text"), sel("fgret", "FG/RET", "FG/RET"), sel("tellody", "Tellody", "Tellody")]],
+      ["Επαφή", [F("cname", "Ονοματεπώνυμο", "text"), F("crole", "Θέση", "text"), F("cphone", "Τηλέφωνο", "text"), F("cemail", "Email", "email")]],
+      ["Lead", [sel("year", "Χρονιά *", "Χρονιά"), sel("source", "Προέλευση (τύπος · κανάλι)", "Προέλευση"), sel("handler", "Χειριστής", "Χειριστής"), sel("stage", "Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος"), sel("sponsor", "Χορηγία", "Χορηγία"), sel("hall", "Hall", "Hall"), F("sqm", "Τ.μ.", "number")]],
+      ["Πρώτη ενέργεια", [F("adate", "Ημερομηνία", "date"), sel("atype", "Τύπος ενέργειας", "Τύπος ενέργειας"), F("adesc", "Περιγραφή", "textarea", { full: 1 })]]],
+    run: v => Core.newLead(v) },
+  action: { title: "Νέα ενέργεια / σχόλιο", ok: "Αποθήκευση", hint: "Καταγράφει ενέργεια και, προαιρετικά, ενημερώνει την πορεία του lead. Αφήστε κενή την περιγραφή για να αλλάξετε μόνο το lead.",
+    groups: [["Ενέργεια", [F("company", "Εταιρεία *", "company", { full: 1 }), F("year", "Χρονιά lead (κενό = τελευταία)", "leadyear"), F("date", "Ημερομηνία", "date"), sel("type", "Τύπος ενέργειας", "Τύπος ενέργειας"), sel("handler", "Χειριστής", "Χειριστής"), F("desc", "Περιγραφή *", "textarea", { full: 1 })]],
+      ["Ενημέρωση lead (μόνο ό,τι άλλαξε)", [sel("stage", "Νέα πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος"), sel("sponsor", "Νέα κατάσταση χορηγίας", "Χορηγία"), sel("reason", "Λόγος ακύρωσης", "Λόγος ακύρωσης"), sel("hall", "Hall", "Hall"), F("sqm", "Τ.μ.", "number"), sel("newhandler", "Νέος χειριστής lead", "Χειριστής")]]],
+    run: v => Core.newAction(v), live: actionInfo },
+  contact: { title: "Νέα επαφή", ok: "Προσθήκη", hint: "«Ναι – αντί της παλιάς» = γίνεται η μόνη κύρια επαφή (οι παλιές γίνονται Όχι).",
+    groups: [["", [F("company", "Εταιρεία *", "company", { full: 1 }), F("name", "Ονοματεπώνυμο *", "text"), F("role", "Θέση", "text"), F("phone", "Τηλέφωνο", "text"), F("email", "Email", "email"),
+      F("primary", "Κύρια επαφή", "select", { opts: ["Όχι", "Ναι – επιπλέον κύρια", "Ναι – αντί της παλιάς"], nofirst: 1 }), F("notes", "Σημειώσεις", "textarea", { full: 1 })]]],
+    run: v => Core.newContact(v) },
+  del: { title: "Διαγραφή", ok: "Οριστική διαγραφή", danger: 1, hint: "Σβήνει ένα lead (με χρονιά) ή ολόκληρη την εταιρεία (χωρίς χρονιά: εταιρεία + leads + ενέργειες + επαφές). Δεν αναιρείται – εκτός αν δεν αποθηκεύσετε το Excel.",
+    groups: [["", [F("company", "Εταιρεία *", "company", { full: 1 }), F("year", "Τι διαγράφεται", "delyear", { full: 1 }), F("confirm", "ΝΑΙ – οριστική διαγραφή", "check", { full: 1 })]]],
+    run: v => Core.remove(v), live: delInfo },
+  rename: { title: "Μετονομασία εταιρείας", ok: "Μετονομασία", hint: "Το όνομα αλλάζει μόνο στις «Εταιρείες»· όλα τα άλλα φύλλα ακολουθούν, γιατί συνδέονται με τον κωδικό.",
+    groups: [["", [F("company", "Εταιρεία", "company", { full: 1 }), F("newName", "Το σωστό όνομα *", "text", { full: 1 })]]],
+    run: v => Core.rename(String(Core.parseCode(v.company) || v.company), v.newName) },
+  editE: { title: "Στοιχεία εταιρείας", ok: "Αποθήκευση", k: "E", groups: [["", [sel("Κλάδος", "Κλάδος", "Κλάδος"), F("Χώρα", "Χώρα", "text"), sel("FG/RET", "FG/RET", "FG/RET"), sel("Tellody", "Tellody", "Tellody"), F("Σύνδεσμος αρχείων", "Σύνδεσμος αρχείων", "text", { full: 1 }), F("Αναγνωριστικό List", "Αναγνωριστικό List", "text")]]] },
+  editL: { title: "Επεξεργασία lead", ok: "Αποθήκευση", k: "L", hint: "Για αλλαγή πορείας με καταγραφή στο ιστορικό, προτιμήστε «+ Ενέργεια».",
+    groups: [["", [sel("Προέλευση", "Προέλευση", "Προέλευση"), sel("Χειριστής", "Χειριστής", "Χειριστής"), sel("Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος", "Πορεία ενδιαφέροντος"), sel("Χορηγία", "Χορηγία", "Χορηγία"),
+      sel("Λόγος ακύρωσης", "Λόγος ακύρωσης", "Λόγος ακύρωσης"), sel("Hall", "Hall", "Hall"), F("Αριθμός Stand", "Αριθμός Stand", "text"), F("Τ.μ.", "Τ.μ.", "number"), F("Σημειώσεις", "Σημειώσεις", "textarea", { full: 1 }), F("Αρχικά σχόλια List", "Αρχικά σχόλια List", "textarea", { full: 1 })]]] },
+  editP: { title: "Επεξεργασία επαφής", ok: "Αποθήκευση", k: "P", groups: [["", [F("Ονοματεπώνυμο", "Ονοματεπώνυμο", "text"), F("Θέση", "Θέση", "text"), F("Τηλέφωνο", "Τηλέφωνο", "text"), F("Email", "Email", "email"),
+    F("Κύρια επαφή", "Κύρια επαφή", "select", { opts: ["Ναι", "Όχι"] }), F("Σημειώσεις", "Σημειώσεις", "textarea", { full: 1 })]]] },
+  editA: { title: "Αλλαγή ενέργειας", ok: "Αποθήκευση", k: "A", groups: [["", [F("Ημερομηνία", "Ημερομηνία", "date"), sel("Τύπος ενέργειας", "Τύπος ενέργειας", "Τύπος ενέργειας"), sel("Χειριστής", "Χειριστής", "Χειριστής"), F("Χρονιά lead", "Χρονιά lead", "number"), F("Περιγραφή", "Περιγραφή", "textarea", { full: 1 })]]] }
+};
+let cur = null;
+function fieldHTML(f, val) {
+  const id = "f_" + f.name.replace(/[^\w]/g, "_") + "_" + Math.random().toString(36).slice(2, 6);
+  const nm = `name="${esc(f.name)}" id="${id}"`, cls = f.full ? ' class="full"' : "";
+  let inp;
+  if (f.type === "select") {
+    const vals = f.opts || list(f.list); const all = val !== "" && val !== undefined && !vals.map(String).includes(String(val)) ? [...vals, val] : vals;
+    inp = `<select ${nm}>${opt(all, val, f.nofirst ? undefined : "—")}</select>`;
+  } else if (f.type === "textarea") inp = `<textarea ${nm}>${esc(val)}</textarea>`;
+  else if (f.type === "company") inp = `<input ${nm} list="dl-co" autocomplete="off" value="${esc(val)}">`;
+  else if (f.type === "date") inp = `<input ${nm} type="date" value="${val ? toInputDate(val) : ""}">`;
+  else if (f.type === "leadyear" || f.type === "delyear") inp = `<select ${nm}></select>`;
+  else if (f.type === "check") return `<label class="full" style="flex-direction:row;align-items:center;gap:8px;color:var(--red);font-weight:600"><input type="checkbox" ${nm} style="min-height:0;width:20px;height:20px">${esc(f.label)}</label>`;
+  else inp = `<input ${nm} type="${f.type === "number" ? "number" : f.type === "email" ? "email" : "text"}" value="${esc(val)}"${f.type === "number" ? ' step="any"' : ""}>`;
+  return `<label for="${id}"${cls}>${esc(f.label)}${inp}</label>`;
+}
+function openForm(kind, pre) {
+  const fd = FORMS[kind]; cur = { kind, fd, pre };
+  let vals = { ...pre };
+  if (fd.k) vals = { ...Core.row(fd.k, pre.i) };
+  else {
+    const t = Core.today();
+    if (kind === "lead") Object.assign(vals, { year: pre.year || ui.year, handler: ui.me, adate: t });
+    if (kind === "action") Object.assign(vals, { date: t, handler: ui.me });
+    if (kind === "contact") vals.primary = "Όχι";
+  }
+  if (kind === "lead" && pre.company) vals.year = Math.max(ui.year, Core.latestYear(Core.parseCode(pre.company)) + 1);
+  $("#mbox").innerHTML = `<div class="mh"><h2>${esc(fd.title)}${fd.k ? ` <span class="muted" style="font-size:14px;font-weight:400">${esc(pre.company)}</span>` : ""}</h2><button class="x-close" id="mClose" aria-label="Κλείσιμο">×</button></div>
+    <form id="frm" class="mb" autocomplete="off">${fd.hint ? `<p class="muted" style="margin-top:0;font-size:14px">${esc(fd.hint)}</p>` : ""}<div id="live"></div>
+    ${fd.groups.map(([lg, fs]) => `<fieldset>${lg ? `<legend>${esc(lg)}</legend>` : ""}<div class="fg">${fs.map(f => fieldHTML(f, vals[f.name] ?? "")).join("")}</div></fieldset>`).join("")}</form>
+    <div class="mf"><span class="msg" id="fmsg"></span><button class="btn" id="mCancel">Άκυρο</button><button class="btn ${fd.danger ? "danger" : "pri"}" id="mOk">${esc(fd.ok)}</button></div>`;
+  $("#modal").classList.add("on");
+  const frm = $("#frm");
+  const co = frm.querySelector('[name="company"]');
+  if (co && kind === "rename" && pre.company) co.readOnly = true;
+  if (co && fd.k) co.remove();
+  const yearSel = frm.querySelector('select[name="year"]');
+  const fillYears = () => {
+    const f = fd.groups.flat(2).find(x => x && x.name === "year"); if (!f || (f.type !== "leadyear" && f.type !== "delyear") || !yearSel) return;
+    const c = Core.derive().comp.get(Core.parseCode(co.value)) || [...Core.derive().comp.values()].find(x => Core.norm(x.name) === Core.norm(co.value));
+    const ys = c ? c.leads.map(l => l.year).sort((a, b) => b - a) : [];
+    const keep = yearSel.value || String(pre.year || "");
+    yearSel.innerHTML = (f.type === "leadyear" ? `<option value="">Τελευταία${ys.length ? " (" + ys[0] + ")" : ""}</option>` : `<option value="">Ολόκληρη η εταιρεία</option>`) + ys.map(y => `<option value="${y}"${String(y) === keep ? " selected" : ""}>${f.type === "delyear" ? "Μόνο το lead " + y : y}</option>`).join("");
+  };
+  const live = () => { fillYears(); if (fd.live) $("#live").innerHTML = fd.live(readForm()); };
+  frm.oninput = e => { if (e.target.name === "company" || e.target.name === "year") live(); };
+  frm.onchange = live;
+  live();
+  frm.onsubmit = e => { e.preventDefault(); submitForm(); };
+  $("#mClose").onclick = closeForm; $("#mCancel").onclick = closeForm; $("#mOk").onclick = submitForm;
+  setTimeout(() => { const first = frm.querySelector("input:not([readonly]),select,textarea"); if (first && !pre.company) first.focus(); else { const d = frm.querySelector('[name="desc"],[name="name"],[name="newName"]'); if (d) d.focus(); } }, 30);
+}
+function readForm() {
+  const v = {}; const frm = $("#frm"); if (!frm) return v;
+  for (const el of frm.elements) { if (!el.name) continue; v[el.name] = el.type === "checkbox" ? el.checked : el.type === "date" ? fromInputDate(el.value) : el.value; }
+  return v;
+}
+async function submitForm() {
+  if (!cur || cur.busy) return;
+  const { kind, fd, pre } = cur, v = readForm(), m = $("#fmsg"), okb = $("#mOk");
+  cur.busy = true; okb.disabled = true; m.textContent = "Αποθήκευση…"; m.className = "msg";
+  try {
+    let res;
+    if (fd.k) {
+      if (fd.k === "A" && v["Ημερομηνία"] > Core.today()) throw new Error("Η ημερομηνία είναι στο μέλλον.");
+      if (fd.k === "A" && !v["Ημερομηνία"]) delete v["Ημερομηνία"];
+      await Core.editRow(fd.k, pre.i, v); res = { msg: "Οι αλλαγές καταχωρήθηκαν." };
+    } else res = await fd.run(v);
+    closeForm();
+    if (kind === "del" && !res.code) closeDrawer();
+    if (res.code && kind !== "del" && !ui.drawer && (kind === "lead" || kind === "contact")) ui.drawer = res.code;
+    after(res);
+  } catch (e) { m.textContent = "⚠️ " + (e.message || e); m.className = "msg err"; if (cur) { cur.busy = false; okb.disabled = false; } }
+}
+function closeForm() { $("#modal").classList.remove("on"); cur = null; }
+function actionInfo(v) {
+  const c = Core.derive().comp.get(Core.parseCode(v.company)) || [...Core.derive().comp.values()].find(x => Core.norm(x.name) === Core.norm(v.company));
+  if (!c) return "";
+  const y = +v.year || (c.leads.length ? Math.max(...c.leads.map(l => l.year)) : 0), l = c.leads.find(x => x.year === y);
+  if (!l) return `<div class="info">Η «${esc(c.name)}» δεν έχει lead. Ανοίξτε πρώτα lead με «Νέο lead».</div>`;
+  return `<div class="info"><b>Τώρα (${y}):</b> ${esc(l.stage || "χωρίς πορεία")}${l.sponsor ? " · χορηγία: " + esc(l.sponsor) : ""} · χειριστής: ${esc(l.handler || "—")} · κύρια επαφή: ${esc(c.person || "—")}<br><span class="muted">Τελευταία επαφή: ${fmtD(l.last) || "καμία"}${l.lastDesc ? " – " + esc(l.lastDesc) : ""}</span></div>`;
+}
+function delInfo(v) {
+  const p = Core.deletePreview(v.company, v.year); if (!p) return "";
+  return `<div class="info" style="background:var(--redbg)"><b>Θα διαγραφούν:</b> εταιρεία: ${v.year ? "όχι (μένει)" : "ΝΑΙ – ολόκληρη"} · leads: ${p.leads} · ενέργειες: ${p.actions} · επαφές: ${p.contacts}</div>`;
+}
+$("#modal").addEventListener("mousedown", e => { if (e.target.id === "modal") closeForm(); });
+boot();
+}
+</script>
+</body>
+</html>
