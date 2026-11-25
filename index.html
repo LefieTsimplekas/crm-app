@@ -70,6 +70,12 @@ th.so{cursor:pointer;user-select:none}th.so:hover{background:var(--line)}th .si{
 .imp-tbl td,.imp-tbl th{font-size:12.5px;padding:4px 6px}.imp-tbl select{min-height:28px;padding:1px 4px;font-size:12.5px;max-width:260px}
 tr.st-skip td{opacity:.55}tr.st-warn td{background:var(--ambbg)}
 .prog{height:10px;background:var(--bg2);border-radius:5px;overflow:hidden;margin:10px 0}.prog i{display:block;height:100%;background:var(--brand2);transition:width .2s}
+.help{max-width:860px;font-size:14.5px;line-height:1.6}.help h2{font-size:22px;margin:26px 0 8px;padding-top:6px;border-top:1px solid var(--line)}.help h2:first-of-type{border:0;margin-top:6px}
+.help h3{font-size:16px;margin:16px 0 4px}.help p,.help li{max-width:75ch}.help ul,.help ol{padding-left:22px;margin:6px 0}.help li{margin:3px 0}
+.help kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:12.5px;background:var(--bg2)}
+.help .toc{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}.help .toc a{border:1px solid var(--line);border-radius:99px;padding:3px 11px;font-size:13px;text-decoration:none;color:var(--ink);background:var(--card)}
+.help .tip{background:var(--grnbg);border-radius:8px;padding:8px 12px;margin:8px 0}.help .warn{background:var(--ambbg);border-radius:8px;padding:8px 12px;margin:8px 0}
+.help table{max-width:760px;margin:6px 0}.help td,.help th{font-size:13.5px}
 .cbx{position:relative}.cbx-list{position:absolute;left:0;right:0;top:100%;z-index:40;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-height:260px;overflow:auto;margin-top:2px}
 .cbx-list div{padding:6px 10px;cursor:pointer;color:var(--ink);font-size:14px}.cbx-list div small{color:var(--mute);margin-left:6px}.cbx-list div[aria-selected=true],.cbx-list div:hover{background:var(--bg2)}
 .chip{border:1px solid var(--line);background:var(--bg2);border-radius:99px;padding:5px 12px;font-size:13px}
@@ -950,7 +956,7 @@ function refreshDatalist() {
 function render() {
   const app = $("#app");
   if (!ui.loaded) { app.innerHTML = welcomeHTML(); bindWelcome(); return; }
-  const views = [["track", "Παρακολούθηση"], ["companies", "Εταιρείες"], ["history", "Ενέργειες"], ["summary", "Σύνοψη"], ["settings", "Ρυθμίσεις"]];
+  const views = [["track", "Παρακολούθηση"], ["companies", "Εταιρείες"], ["history", "Ενέργειες"], ["summary", "Σύνοψη"], ["settings", "Ρυθμίσεις"], ["help", "Οδηγίες"]];
   app.innerHTML = `
   <header class="top"><h1>Leads CRM</h1><span class="file" title="${esc(ui.email)}"><i id="liveDot" class="live" data-on="${ui.live}"></i>${esc(ui.email)}</span><span class="sp"></span>
     <button class="btn ghost" id="installBtn"${installEvt ? "" : " hidden"}>Εγκατάσταση εφαρμογής</button>
@@ -961,7 +967,7 @@ function render() {
     <button class="btn pri" data-form="lead">+ Νέο lead</button><button class="btn" data-form="action">+ Ενέργεια / σχόλιο</button>
     <button class="btn" data-form="contact">+ Επαφή</button><button class="btn" data-form="del">Διαγραφή</button><button class="btn" id="impBtn">Εισαγωγή από Excel</button>
   </div>
-  <main id="view">${({ track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML })[ui.view]()}</main>`;
+  <main id="view">${({ track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML, help: helpHTML })[ui.view]()}</main>`;
   bindMain(); applySorts($("#view"));
 }
 
@@ -1145,6 +1151,138 @@ function sourceHTML(d, Y) {
   </tbody></table></div><p class="muted" style="font-size:12.5px;margin:6px 0 0">Μετατροπή = εκθέτες / (εκθέτες + ακυρώσεις). Πατήστε τον τίτλο μιας στήλης για ταξινόμηση.</p>` : `<div class="empty">Κανένα lead για ${Y}.</div>`}</div>`;
 }
 
+// ---- Οδηγίες ----
+function helpHTML() {
+  const sec = [["start", "Ξεκίνημα"], ["track", "Παρακολούθηση"], ["lead", "Νέο lead"], ["action", "Ενέργεια"], ["contact", "Επαφές"], ["card", "Καρτέλα εταιρείας"],
+    ["delete", "Διαγραφή"], ["import", "Εισαγωγή"], ["export", "Εξαγωγή"], ["summary", "Σύνοψη"], ["settings", "Ρυθμίσεις"], ["admin", "Διαχειριστής"], ["faq", "Συχνές ερωτήσεις"]];
+  return `<article class="help">
+  <h1 style="font-size:28px;margin:4px 0 6px">Οδηγίες χρήσης</h1>
+  <p class="muted" style="margin:0">Το Leads CRM κρατά τις εταιρείες, τα leads ανά χρονιά, τις ενέργειες και τις επαφές της έκθεσης. Όλα αποθηκεύονται αμέσως στη βάση και τα βλέπει όλη η ομάδα.</p>
+  <div class="toc" role="navigation" aria-label="Περιεχόμενα">${sec.map(([id, t]) => `<a href="#h-${id}" data-jump="h-${id}">${t}</a>`).join("")}</div>
+
+  <h2 id="h-start">Ξεκίνημα</h2>
+  <ul>
+    <li><b>Σύνδεση:</b> με το email και τον κωδικό που σας έδωσε ο διαχειριστής. Μένετε συνδεδεμένοι μέχρι να πατήσετε «Αποσύνδεση».</li>
+    <li><b>Η πράσινη τελεία</b> δίπλα στο email σας σημαίνει ότι η εφαρμογή λαμβάνει ζωντανά τις αλλαγές των συναδέλφων. Αν είναι γκρι, ανανεώστε τη σελίδα.</li>
+    <li><b>Ρυθμίσεις → «Είμαι ο/η»:</b> διαλέξτε το όνομά σας. Έτσι μπαίνει αυτόματα ως χειριστής στις νέες καταχωρήσεις.</li>
+    <li><b>Εγκατάσταση ως εφαρμογή:</b> στον υπολογιστή πατήστε «Εγκατάσταση εφαρμογής» πάνω δεξιά (Chrome/Edge). Στο κινητό: Android → μενού ⋮ → «Εγκατάσταση εφαρμογής», iPhone → Safari → Κοινοποίηση → «Προσθήκη στην οθόνη Αφετηρίας».</li>
+  </ul>
+
+  <h2 id="h-track">Παρακολούθηση</h2>
+  <p>Η βασική οθόνη: τα leads μιας χρονιάς, με αυτά που χρειάζονται επαφή πρώτα.</p>
+  <table><thead><tr><th>Χρώμα</th><th>Σημαίνει</th></tr></thead><tbody>
+    <tr style="cursor:default"><td><span class="st"><i class="dot r"></i>Κόκκινο</span></td><td>Καμία επαφή ακόμα, ή ${ui.red} ημέρες και πάνω χωρίς επαφή</td></tr>
+    <tr style="cursor:default"><td><span class="st"><i class="dot a"></i>Πορτοκαλί</span></td><td>${ui.orange}–${ui.red - 1} ημέρες χωρίς επαφή: θέλει επαφή σύντομα</td></tr>
+    <tr style="cursor:default"><td><span class="st"><i class="dot"></i>Πράσινο</span></td><td>Πρόσφατη επαφή (κάτω από ${ui.orange} ημέρες)</td></tr>
+    <tr style="cursor:default"><td><span class="st"><i class="dot k"></i>Κλειστό</span></td><td>Εκθέτης ή ακύρωση, και χωρίς χορηγία σε εξέλιξη· φαίνεται μόνο με «Εμφάνιση: Όλα»</td></tr></tbody></table>
+  <ul>
+    <li><b>Φίλτρα:</b> Χρονιά, Χειριστής (η δική σας λίστα = φίλτρο με το όνομά σας), Μόνο ανοιχτά / Όλα, και αναζήτηση σε όνομα, επαφή, τηλέφωνο, σημειώσεις κ.λπ.</li>
+    <li><b>Pipeline:</b> τα κουμπάκια με τα στάδια δείχνουν πόσα leads έχει το καθένα· πατήστε ένα για να δείτε μόνο αυτό το στάδιο.</li>
+    <li><b>«+ Ενέργεια»</b> στην αρχή κάθε γραμμής: καταγράφετε γρήγορα τι έγινε με αυτό το lead.</li>
+    <li><b>Κλικ σε γραμμή:</b> ανοίγει η καρτέλα της εταιρείας.</li>
+    <li><b>Στήλες:</b> το κουμπί «Στήλες» προσθέτει/αφαιρεί στήλες και αλλάζει τη σειρά τους (↑ ↓). Η επιλογή κρατιέται στον browser σας.</li>
+    <li><b>Ταξινόμηση:</b> κλικ στον τίτλο μιας στήλης → ▲ αύξουσα, ξανά → ▼ φθίνουσα, τρίτη φορά → αρχική σειρά. Ισχύει σε όλους τους πίνακες.</li>
+  </ul>
+
+  <h2 id="h-lead">Νέο lead / νέα εταιρεία</h2>
+  <p>Για <b>νέα εταιρεία</b> ή για <b>παλιά εταιρεία σε νέα χρονιά</b>. Σε ένα βήμα φτιάχνει εταιρεία (αν δεν υπάρχει), επαφή, lead και πρώτη ενέργεια.</p>
+  <ul>
+    <li>Στο «Εταιρεία» αρχίστε να γράφετε: η λίστα προτείνει τις υπάρχουσες. Για νέα, γράψτε απλώς το όνομα.</li>
+    <li>Αν το όνομα <b>μοιάζει</b> με υπάρχουσα (π.χ. «Goodwe Hellas ΑΕ» και «GOODWE»), εμφανίζεται «Μήπως υπάρχει ήδη;». Πατήστε την εταιρεία για να τη χρησιμοποιήσετε· αν είναι πράγματι νέα, πατήστε «Αποθήκευση» δύο φορές.</li>
+    <li><b>Χώρα:</b> γράψτε λίγα γράμματα στα ελληνικά ή στα αγγλικά («γερμ», «germ») και διαλέξτε. Αποθηκεύεται με το αγγλικό όνομα.</li>
+    <li><b>Χειριστής:</b> τσεκάρετε έναν ή περισσότερους.</li>
+    <li>Ένα lead ανά εταιρεία ανά χρονιά. Αν υπάρχει ήδη, χρησιμοποιήστε «+ Ενέργεια».</li>
+  </ul>
+
+  <h2 id="h-action">Νέα ενέργεια / σχόλιο</h2>
+  <p>Κάθε τηλέφωνο, email, συνάντηση ή σχόλιο. Από εδώ μετριούνται οι «ημέρες χωρίς επαφή».</p>
+  <ul>
+    <li>Διαλέξτε εταιρεία· η χρονιά, αν μείνει κενή, είναι η τελευταία του lead. Πάνω στη φόρμα φαίνεται πού βρίσκεται τώρα το lead.</li>
+    <li>Γράψτε <b>Περιγραφή</b>. Ο τύπος, αν μείνει κενός, γίνεται «Σχόλιο».</li>
+    <li><b>Ενημέρωση lead:</b> συμπληρώστε μόνο ό,τι άλλαξε (νέα πορεία, χορηγία, Hall, τ.μ., χειριστές). Τα κενά πεδία δεν αλλάζουν τίποτα.</li>
+    <li>Για να αλλάξετε μόνο την πορεία χωρίς ενέργεια, αφήστε κενά Τύπο και Περιγραφή.</li>
+    <li>Αν το lead γίνει «Ακύρωση», θα σας θυμίσει να βάλετε και «Λόγο ακύρωσης».</li>
+  </ul>
+
+  <h2 id="h-contact">Επαφές</h2>
+  <ul>
+    <li><b>«+ Επαφή»:</b> νέο πρόσωπο σε υπάρχουσα εταιρεία. «Κύρια επαφή: Ναι – αντί της παλιάς» την κάνει τη μόνη κύρια.</li>
+    <li>Η κύρια επαφή είναι αυτή που φαίνεται στις λίστες (Επαφή, Τηλέφωνο, Email).</li>
+    <li>Αλλαγή ή αφαίρεση: από την καρτέλα της εταιρείας.</li>
+  </ul>
+
+  <h2 id="h-card">Καρτέλα εταιρείας</h2>
+  <p>Ανοίγει με κλικ σε οποιαδήποτε γραμμή. Δείχνει στοιχεία, επαφές, leads ανά χρονιά και όλο το ιστορικό ενεργειών. Από εδώ:</p>
+  <ul>
+    <li><b>Επεξεργασία</b> στοιχείων εταιρείας, κάθε lead (Hall, Stand, σημειώσεις κ.λπ.), κάθε επαφής και κάθε ενέργειας.</li>
+    <li><b>Σβήσιμο</b> μιας ενέργειας ή επαφής (δεύτερο κλικ για επιβεβαίωση).</li>
+    <li><b>Μετονομασία:</b> το νέο όνομα φαίνεται παντού αμέσως.</li>
+    <li><b>+ Lead νέας χρονιάς</b>, <b>+ Ενέργεια</b>, <b>+ Επαφή</b>, <b>Διαγραφή</b>, ήδη συμπληρωμένα με την εταιρεία.</li>
+  </ul>
+
+  <h2 id="h-delete">Διαγραφή</h2>
+  <ul>
+    <li><b>Με χρονιά:</b> σβήνει μόνο εκείνο το lead και τις ενέργειές του· η εταιρεία και οι επαφές μένουν.</li>
+    <li><b>«Ολόκληρη η εταιρεία»:</b> σβήνει εταιρεία, όλα τα leads, ενέργειες και επαφές.</li>
+    <li>Πριν σβήσει δείχνει τι θα χαθεί και ζητά να τσεκάρετε «ΝΑΙ – οριστική διαγραφή».</li>
+  </ul>
+  <div class="warn">Η διαγραφή είναι οριστική. Αν δεν είστε σίγουροι, κρατήστε πρώτα ένα αντίγραφο με «Εξαγωγή σε Excel».</div>
+
+  <h2 id="h-import">Εισαγωγή από Excel / CSV</h2>
+  <ol>
+    <li><b>Αρχείο:</b> .xlsx ή .csv με μία εταιρεία ανά γραμμή και τίτλους στηλών (π.χ. Company, Contact Person, E-mail).</li>
+    <li><b>Αντιστοίχιση:</b> όσες στήλες αναγνωρίστηκαν είναι ήδη επιλεγμένες· ελέγξτε τις υπόλοιπες. Ορίστε χρονιά, προέλευση, πορεία, Hall και χειριστές για όλα τα νέα leads.</li>
+    <li><b>Έλεγχος:</b> για κάθε γραμμή φαίνεται τι θα γίνει. Οι <b>κίτρινες</b> μοιάζουν με εταιρεία που υπάρχει: διαλέξτε «Νέα εταιρεία» ή «Ίδια με…». Η ίδια εταιρεία δύο φορές στο αρχείο μπαίνει μία φορά με όλες τις επαφές.</li>
+    <li><b>Εισαγωγή:</b> μην κλείσετε τη σελίδα μέχρι να τελειώσει. Στο τέλος φαίνονται πόσα μπήκαν και τυχόν σφάλματα.</li>
+  </ol>
+  <div class="tip">Τσεκάρετε «Καταγραφή ενέργειας» αν δεν θέλετε τα νέα leads να εμφανίζονται κόκκινα ως «Καμία επαφή».</div>
+
+  <h2 id="h-export">Εξαγωγή σε Excel</h2>
+  <p>Το κουμπί πάνω δεξιά κατεβάζει ένα Excel με φύλλα Εταιρείες, Leads (με τελευταία επαφή και ιστορικό), Ενέργειες, Επαφές και Ρυθμίσεις. Χρήσιμο για αντίγραφο ασφαλείας ή για να στείλετε μια λίστα.</p>
+
+  <h2 id="h-summary">Σύνοψη</h2>
+  <ul>
+    <li><b>Δείκτες</b> της χρονιάς δίπλα στην προηγούμενη: leads, εκθέτες, χορηγοί, ακυρώσεις, τ.μ., ποσοστό μετατροπής (εκθέτες / (εκθέτες + ακυρώσεις)).</li>
+    <li><b>Πορεία ενδιαφέροντος</b> και <b>ανά χειριστή</b> (leads, ανοιχτά, εκθέτες, ενέργειες της εβδομάδας).</li>
+    <li><b>Ανά προέλευση</b>, με ομαδοποίηση ανά πλήρη προέλευση, τύπο (Παλιός Εκθέτης / Νέο Lead…) ή κανάλι (Προσέγγιση / email…).</li>
+  </ul>
+
+  <h2 id="h-settings">Ρυθμίσεις</h2>
+  <ul>
+    <li><b>Όρια χρωμάτων:</b> μετά από πόσες ημέρες ένα lead γίνεται πορτοκαλί ή κόκκινο (μόνο για εσάς).</li>
+    <li><b>Νέος χειριστής:</b> μπαίνει στις λίστες. Για να μπορεί και να συνδεθεί, ο διαχειριστής του φτιάχνει λογαριασμό (δείτε παρακάτω).</li>
+    <li><b>Λίστες επιλογών:</b> «Προσθήκη» νέας τιμής· περάστε το ποντίκι πάνω από μια τιμή για <b>✎</b> μετονομασία (αλλάζει και σε όλες τις εγγραφές), <b>↑ ↓</b> σειρά, <b>✕</b> διαγραφή (μόνο από τη λίστα). Οι τιμές «Εξέλιξη σε εκθέτη», «Ακύρωση» και οι καταστάσεις χορηγίας μετρούν στα στατιστικά: μετονομάζονται, αλλά δεν σβήνονται.</li>
+    <li><b>Χώρες:</b> ενοποίηση παλιών ονομάτων (π.χ. Κίνα → China) με ένα κλικ.</li>
+    <li><b>Όρια Supabase:</b> μέγεθος βάσης και εκτίμηση κίνησης του μήνα ως προς τα όρια του δωρεάν πλάνου.</li>
+    <li><b>Αλλαγή κωδικού</b> (τουλάχιστον 8 χαρακτήρες).</li>
+  </ul>
+
+  <h2 id="h-admin">Για τον διαχειριστή</h2>
+  <ul>
+    <li><b>Νέος χρήστης:</b> Supabase → Authentication → Users → Add user → Create new user, με email, προσωρινό κωδικό και «Auto Confirm User». Μετά προσθέστε το όνομά του στις Ρυθμίσεις → Νέος χειριστής.</li>
+    <li><b>Ξέχασε τον κωδικό:</b> Supabase → Authentication → Users → ο χρήστης → «Send password recovery», ή διαγράψτε τον και ξαναφτιάξτε τον με νέο κωδικό.</li>
+    <li><b>Αφαίρεση πρόσβασης:</b> Supabase → Authentication → Users → διαγραφή χρήστη. Τα δεδομένα που καταχώρησε μένουν.</li>
+    <li><b>Δεδομένα απευθείας:</b> Supabase → Table Editor (companies, leads, actions, contacts, lists).</li>
+    <li><b>Όρια και κατανάλωση:</b> Supabase → (organization) → Usage.</li>
+    <li><b>Ενημερώσεις εφαρμογής:</b> γίνονται στο GitHub repo. Η σελίδα ανανεώνεται μόνη της 1–2 λεπτά μετά.</li>
+  </ul>
+
+  <h2 id="h-faq">Συχνές ερωτήσεις</h2>
+  <h3>Γιατί ένα lead είναι κόκκινο ενώ του μίλησα;</h3>
+  <p>Μετράει μόνο ό,τι έχει καταγραφεί ως ενέργεια. Πατήστε «+ Ενέργεια» και γράψτε τι έγινε.</p>
+  <h3>Δεν βλέπω μια εταιρεία στην Παρακολούθηση.</h3>
+  <p>Ελέγξτε Χρονιά, Χειριστή και «Εμφάνιση: Όλα» (τα κλειστά κρύβονται) και καθαρίστε την αναζήτηση. Αν δεν έχει lead εκείνη τη χρονιά, θα τη βρείτε στις «Εταιρείες».</p>
+  <h3>Άλλαξε κάτι ο συνάδελφος και δεν το βλέπω.</h3>
+  <p>Συνήθως εμφανίζεται σε λίγα δευτερόλεπτα. Αν η τελεία δίπλα στο email είναι γκρι, ανανεώστε τη σελίδα (<kbd>F5</kbd>).</p>
+  <h3>Η σελίδα φαίνεται πολύ μεγάλη ή πολύ μικρή.</h3>
+  <p><kbd>Ctrl</kbd> + <kbd>0</kbd> επαναφέρει το ζουμ στο 100%· <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>−</kbd> το αλλάζει.</p>
+  <h3>«Η σύνδεσή σας έληξε ή δεν έχετε δικαίωμα».</h3>
+  <p>Πατήστε «Αποσύνδεση» και συνδεθείτε ξανά.</p>
+  <h3>Πού βρίσκονται τα δεδομένα;</h3>
+  <p>Στη βάση Supabase της ομάδας. Η εφαρμογή στο GitHub είναι μόνο η «οθόνη»· δεν περιέχει δεδομένα.</p>
+  </article>`;
+}
+
 // ---- Ρυθμίσεις ----
 function settingsHTML() {
   const L = Core.S.lists;
@@ -1189,6 +1327,7 @@ function bindMain(partial) {
     if (e.target.id === "addH") { busy(e.target, () => Core.addListValue("Χειριστής", $("#newH").value)); return; }
     if (e.target.id === "pwBtn") { changePw(); return; }
     const la = e.target.closest("[data-listadd]"); if (la) { const h = la.dataset.listadd; const inp = [...document.querySelectorAll("[data-listin]")].find(i => i.dataset.listin === h); busy(la, () => Core.addListValue(h, inp.value)); return; }
+    const j = e.target.closest("[data-jump]"); if (j) { e.preventDefault(); document.getElementById(j.dataset.jump)?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     const li = e.target.closest("li[data-l]");
     if (li && e.target.closest("button")) return listItemAction(li, e.target.closest("button"));
     const tr = e.target.closest("tr[data-code]"); if (tr) openDrawer(+tr.dataset.code);
@@ -1312,7 +1451,7 @@ function setupCountry(frm) {
 }
 function rerender(focusId) {
   const pos = focusId && $("#" + focusId) ? $("#" + focusId).selectionStart : null;
-  const views = { track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML };
+  const views = { track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML, help: helpHTML };
   $("#view").innerHTML = views[ui.view](); bindMain(true); applySorts($("#view"));
   if (ui.view === "settings") loadUsage();
   if (focusId) { const el = $("#" + focusId); el.focus(); if (pos !== null) el.setSelectionRange(pos, pos); }
