@@ -43,7 +43,7 @@ nav{display:flex;gap:4px;padding:0 max(3vw,14px);background:var(--brand);overflo
 nav button{flex:none;background:none;border:0;color:#cfe3dc;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:500;white-space:nowrap}
 nav button[aria-current=true]{background:var(--bg);color:var(--ink)}
 .acts{display:flex;gap:8px;flex-wrap:wrap;padding:14px max(3vw,14px) 0}
-main{padding:14px max(3vw,14px) 60px;max-width:1500px}
+main{padding:14px max(3vw,14px) 60px}
 .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
 .filters label{display:flex;flex-direction:column;font-size:12px;color:var(--mute);gap:3px}
 input,select,textarea{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 10px;min-height:40px;font-size:15px}
@@ -65,7 +65,9 @@ tbody tr{cursor:pointer}
 tbody tr:hover{background:var(--bg2)}
 tr.r td{background:var(--redbg)}tr.a td{background:var(--ambbg)}
 td.num{text-align:right;white-space:nowrap}td.nw{white-space:nowrap}
-td.wide{min-width:260px;max-width:420px}
+td.wide{min-width:220px;max-width:420px}
+td.co{min-width:190px;max-width:300px}
+td.md{min-width:130px;max-width:220px}td.ph{min-width:120px;max-width:170px}td.em{min-width:170px;max-width:240px;overflow-wrap:anywhere}
 td.pre{white-space:pre-line;min-width:280px}
 .st{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-weight:500}
 .dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--grn)}
@@ -658,11 +660,15 @@ function trackHTML() {
 function cellHTML(c, l) {
   const v = ALLCOLS[c](l);
   if (c === "Κατάσταση") return `<td><span class="st"><i class="dot ${l._cls}"></i>${esc(v)}</span></td>`;
-  if (c === "Εταιρεία") return `<td><b>${esc(v)}</b></td>`;
+  if (c === "Εταιρεία") return `<td class="co"><b>${esc(v)}</b></td>`;
+  if (c === "Email") return `<td class="em">${esc(v)}</td>`;
+  if (["Hall", "Αριθμός Stand"].includes(c)) return `<td class="nw">${esc(v)}</td>`;
+  if (["Χειριστής", "Πορεία", "Χορηγία", "Επαφή", "Προέλευση", "Κλάδος", "Λόγος ακύρωσης"].includes(c)) return `<td class="md">${esc(v)}</td>`;
   if (c === "Τι έγινε τελευταία" || c === "Σημειώσεις") return `<td class="wide">${esc(v)}</td>`;
   if (c === "Ιστορικό ενεργειών") return `<td class="pre">${esc(v)}</td>`;
   if (c === "Τ.μ." || c === "Χρονιά") return `<td class="num">${esc(v)}</td>`;
-  if (c === "Τελευταία επαφή" || c === "Τηλέφωνο") return `<td class="nw">${esc(v)}</td>`;
+  if (c === "Τελευταία επαφή") return `<td class="nw">${esc(v)}</td>`;
+  if (c === "Τηλέφωνο") return `<td class="ph">${esc(v)}</td>`;
   return `<td>${esc(v)}</td>`;
 }
 function colPopover(anchor) {
