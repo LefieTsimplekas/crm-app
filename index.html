@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Leads CRM</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#00463c">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Leads CRM">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js"></script>
@@ -57,6 +63,13 @@ textarea{min-height:80px;resize:vertical}
 th.so{cursor:pointer;user-select:none}th.so:hover{background:var(--line)}th .si{font-size:10px;margin-left:4px;opacity:.35}th.so[data-dir] .si{opacity:1;color:var(--brand2)}
 .mchk{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0}.mchk label{flex-direction:row!important;align-items:center;gap:6px!important;border:1px solid var(--line);border-radius:99px;padding:4px 12px 4px 8px;color:var(--ink)!important;font-size:13.5px!important;cursor:pointer;background:var(--card)}
 .mchk label:has(input:checked){background:var(--brand);border-color:var(--brand);color:#fff!important}.mchk input{width:16px!important;height:16px;min-height:0;margin:0;flex:none;accent-color:var(--lime)}.mchk label{flex:none;white-space:nowrap}
+.mbox.wide{width:min(1180px,100%)}
+.dup{border-radius:8px;padding:8px 10px;font-size:13px;margin-top:6px;background:var(--ambbg);color:var(--ink)}.dup.ok{background:var(--grnbg)}
+.dup button{margin:4px 6px 0 0}
+.imp-steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.imp-steps span{padding:3px 10px;border-radius:99px;background:var(--bg2);font-size:12.5px}.imp-steps span.on{background:var(--brand);color:#fff}
+.imp-tbl td,.imp-tbl th{font-size:12.5px;padding:4px 6px}.imp-tbl select{min-height:28px;padding:1px 4px;font-size:12.5px;max-width:260px}
+tr.st-skip td{opacity:.55}tr.st-warn td{background:var(--ambbg)}
+.prog{height:10px;background:var(--bg2);border-radius:5px;overflow:hidden;margin:10px 0}.prog i{display:block;height:100%;background:var(--brand2);transition:width .2s}
 .cbx{position:relative}.cbx-list{position:absolute;left:0;right:0;top:100%;z-index:40;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-height:260px;overflow:auto;margin-top:2px}
 .cbx-list div{padding:6px 10px;cursor:pointer;color:var(--ink);font-size:14px}.cbx-list div small{color:var(--mute);margin-left:6px}.cbx-list div[aria-selected=true],.cbx-list div:hover{background:var(--bg2)}
 .chip{border:1px solid var(--line);background:var(--bg2);border-radius:99px;padding:5px 12px;font-size:13px}
@@ -319,7 +332,8 @@ const Core = (() => {
       }
     }
     const handler = tx("handler");
-    await ins("L", { "Επιλογή εταιρείας": code, "Χρονιά": year, "Προέλευση": tx("source"), "Χειριστής": handler, "Πορεία ενδιαφέροντος": tx("stage"), "Χορηγία": tx("sponsor"), "Hall": tx("hall"), "Τ.μ.": num(f.sqm) || "" });
+    await ins("L", { "Επιλογή εταιρείας": code, "Χρονιά": year, "Προέλευση": tx("source"), "Χειριστής": handler, "Πορεία ενδιαφέροντος": tx("stage"), "Χορηγία": tx("sponsor"), "Hall": tx("hall"), "Τ.μ.": num(f.sqm) || "",
+      "Σημειώσεις": tx("notes"), "Αρχικά σχόλια List": tx("lcomments") });
     what.push(`lead ${year}`);
     const atype = tx("atype"), adesc = tx("adesc");
     if (atype || adesc) {
@@ -775,6 +789,45 @@ function countrySearch(q) {
   return COUNTRIES.map(c => [score(c), c]).filter(([s]) => s < 9).sort((a, b) => a[0] - b[0] || a[1].el.localeCompare(b[1].el, "el")).map(x => x[1]);
 }
 
+// ---------- εύρεση παρόμοιων εταιρειών (για να μη γίνονται διπλές) ----------
+const GR2LAT = { α: "a", β: "v", γ: "g", δ: "d", ε: "e", ζ: "z", η: "i", θ: "th", ι: "i", κ: "k", λ: "l", μ: "m", ν: "n", ξ: "x", ο: "o", π: "p", ρ: "r", σ: "s", τ: "t", υ: "y", φ: "f", χ: "ch", ψ: "ps", ω: "o" };
+const LEGAL_WORDS = new Set(["ae", "ike", "oe", "ee", "epe", "mepe", "sa", "ltd", "limited", "llc", "inc", "co", "corp", "corporation", "company", "gmbh", "ag", "srl", "spa", "bv", "nv", "plc", "kft", "sro", "doo", "hellas", "ellas", "ellados", "greece", "the", "kai", "and", "monoprosopi", "s", "a", "e", "k", "o"]);
+function companyKey(name) {
+  let s = String(name ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/ς/g, "σ");
+  s = s.replace(/[α-ω]/g, ch => GR2LAT[ch] || ch);
+  s = s.replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ");
+  return s.split(" ").filter(w => w && !LEGAL_WORDS.has(w)).join(" ");
+}
+function lev(a, b) {
+  if (a === b) return 0; if (!a.length) return b.length; if (!b.length) return a.length;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+function nameSimilarity(a, b) {
+  const ka = companyKey(a), kb = companyKey(b); if (!ka || !kb) return 0;
+  const ca = ka.replace(/ /g, ""), cb = kb.replace(/ /g, "");
+  if (ca === cb) return 1;
+  const [sh, lo] = ca.length <= cb.length ? [ca, cb] : [cb, ca];
+  let best = 0;
+  if (sh.length >= 5 && lo.startsWith(sh)) best = 0.93; else if (sh.length >= 6 && lo.includes(sh)) best = 0.82;
+  const ta = new Set(ka.split(" ")), tb = new Set(kb.split(" ")), inter = [...ta].filter(t => tb.has(t)).length;
+  best = Math.max(best, inter / (ta.size + tb.size - inter) * 0.95);
+  const small = ta.size <= tb.size ? ta : tb, tokLen = [...small].join("").length;
+  if (small.size >= 2 && tokLen >= 8 && inter === small.size) best = Math.max(best, 0.85);   // όλες οι λέξεις του ενός υπάρχουν στο άλλο
+  if (Math.max(ca.length, cb.length) <= 40) best = Math.max(best, 1 - lev(ca, cb) / Math.max(ca.length, cb.length));
+  return best;
+}
+function similarCompanies(name, limit = 3, min = 0.8) {
+  const out = [];
+  for (const c of Core.derive().comp.values()) { const sc = nameSimilarity(name, c.name); if (sc >= min) out.push({ c, sc }); }
+  return out.sort((a, b) => b.sc - a.sc).slice(0, limit);
+}
+
 {
 const $ = s => document.querySelector(s);
 const esc = v => String(v === null || v === undefined ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -900,12 +953,13 @@ function render() {
   const views = [["track", "Παρακολούθηση"], ["companies", "Εταιρείες"], ["history", "Ενέργειες"], ["summary", "Σύνοψη"], ["settings", "Ρυθμίσεις"]];
   app.innerHTML = `
   <header class="top"><h1>Leads CRM</h1><span class="file" title="${esc(ui.email)}"><i id="liveDot" class="live" data-on="${ui.live}"></i>${esc(ui.email)}</span><span class="sp"></span>
+    <button class="btn ghost" id="installBtn"${installEvt ? "" : " hidden"}>Εγκατάσταση εφαρμογής</button>
     <button class="btn ghost" id="exportBtn">Εξαγωγή σε Excel</button>
     <button class="btn ghost" id="logoutBtn">Αποσύνδεση</button></header>
   <nav>${views.map(([k, l]) => `<button data-view="${k}" aria-current="${ui.view === k}">${l}</button>`).join("")}</nav>
   <div class="acts">
     <button class="btn pri" data-form="lead">+ Νέο lead</button><button class="btn" data-form="action">+ Ενέργεια / σχόλιο</button>
-    <button class="btn" data-form="contact">+ Επαφή</button><button class="btn" data-form="del">Διαγραφή</button>
+    <button class="btn" data-form="contact">+ Επαφή</button><button class="btn" data-form="del">Διαγραφή</button><button class="btn" id="impBtn">Εισαγωγή από Excel</button>
   </div>
   <main id="view">${({ track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML })[ui.view]()}</main>`;
   bindMain(); applySorts($("#view"));
@@ -1121,10 +1175,12 @@ function bindMain(partial) {
   const V = $("#view");
   if (!partial) {
     $("#exportBtn").onclick = exportExcel;
+    $("#installBtn").onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; $("#installBtn").hidden = true; };
     $("#logoutBtn").onclick = async () => { await flushUsage(); await sb.auth.signOut(); };
     document.querySelectorAll("nav [data-view]").forEach(b => b.onclick = () => { ui.view = b.dataset.view; render(); });
     if (ui.view === "settings") loadUsage();
     document.querySelectorAll(".acts [data-form]").forEach(b => b.onclick = () => openForm(b.dataset.form, {}));
+    $("#impBtn").onclick = openImport;
   }
   V.onclick = e => {
     const q = e.target.closest("[data-quick]"); if (q) { e.stopPropagation(); return openForm("action", { company: codeLabel(+q.dataset.quick), year: q.dataset.year }); }
@@ -1421,7 +1477,7 @@ function openForm(kind, pre) {
     const keep = yearSel.value || String(pre.year || "");
     yearSel.innerHTML = (f.type === "leadyear" ? `<option value="">Τελευταία${ys.length ? " (" + ys[0] + ")" : ""}</option>` : `<option value="">Ολόκληρη η εταιρεία</option>`) + ys.map(y => `<option value="${y}"${String(y) === keep ? " selected" : ""}>${f.type === "delyear" ? "Μόνο το lead " + y : y}</option>`).join("");
   };
-  const live = () => { fillYears(); if (fd.live) $("#live").innerHTML = fd.live(readForm()); };
+  const live = () => { fillYears(); if (fd.live) $("#live").innerHTML = fd.live(readForm()); if (kind === "lead") dupHint(co); };
   frm.oninput = e => { if (e.target.name === "company" || e.target.name === "year") live(); };
   frm.onchange = live;
   live();
@@ -1439,6 +1495,10 @@ function readForm() {
 async function submitForm() {
   if (!cur || cur.busy) return;
   const { kind, fd, pre } = cur, v = readForm(), m = $("#fmsg"), okb = $("#mOk");
+  if (kind === "lead" && v.company && !Core.findCompany(v.company) && !Core.parseCode(v.company) && !cur.dupOk) {
+    const sim = similarCompanies(v.company);
+    if (sim.length) { cur.dupOk = true; m.textContent = `⚠️ Μοιάζει με «${sim[0].c.name}». Αν είναι σίγουρα νέα εταιρεία, πατήστε ξανά «${fd.ok}».`; m.className = "msg err"; return; }
+  }
   cur.busy = true; okb.disabled = true; m.textContent = "Αποθήκευση…"; m.className = "msg";
   try {
     let res;
@@ -1453,7 +1513,20 @@ async function submitForm() {
     after(res);
   } catch (e) { m.textContent = "⚠️ " + (e.message || e); m.className = "msg err"; if (cur) { cur.busy = false; okb.disabled = false; } }
 }
-function closeForm() { $("#modal").classList.remove("on"); cur = null; }
+function closeForm() { $("#modal").classList.remove("on"); $("#mbox").classList.remove("wide"); cur = null; }
+function dupHint(co) {
+  if (!co) return;
+  let box = co.parentElement.querySelector(".dup"); if (!box) { box = document.createElement("div"); co.insertAdjacentElement("afterend", box); }
+  const v = co.value.trim(); if (cur) cur.dupOk = false;
+  const hit = v ? Core.findCompany(v) : null;
+  if (!v) { box.className = ""; box.innerHTML = ""; return; }
+  if (hit) { box.className = "dup ok"; box.textContent = `Υπάρχουσα εταιρεία (κωδ. ${hit.id}) – θα ανοίξει lead για τη χρονιά που διαλέγετε.`; return; }
+  const sim = similarCompanies(v);
+  if (!sim.length) { box.className = "dup ok"; box.textContent = "Νέα εταιρεία – δεν βρέθηκε παρόμοια."; return; }
+  box.className = "dup";
+  box.innerHTML = `<b>Μήπως υπάρχει ήδη;</b> Βρέθηκαν παρόμοιες εταιρείες:<br>${sim.map(x => `<button type="button" class="btn sm" data-use="${x.c.code}">${esc(x.c.name)} (κωδ. ${x.c.code})</button>`).join("")}<br><span class="muted">Πατήστε μία για να τη χρησιμοποιήσετε, ή συνεχίστε αν είναι πράγματι νέα.</span>`;
+  box.onclick = e => { const b = e.target.closest("[data-use]"); if (!b) return; co.value = codeLabel(+b.dataset.use); co.dispatchEvent(new Event("input", { bubbles: true })); };
+}
 function actionInfo(v) {
   const c = Core.derive().comp.get(Core.parseCode(v.company)) || [...Core.derive().comp.values()].find(x => Core.norm(x.name) === Core.norm(v.company));
   if (!c) return "";
@@ -1466,6 +1539,177 @@ function delInfo(v) {
   return `<div class="info" style="background:var(--redbg)"><b>Θα διαγραφούν:</b> εταιρεία: ${v.year ? "όχι (μένει)" : "ΝΑΙ – ολόκληρη"} · leads: ${p.leads} · ενέργειες: ${p.actions} · επαφές: ${p.contacts}</div>`;
 }
 $("#modal").addEventListener("mousedown", e => { if (e.target.id === "modal") closeForm(); });
+// ---------- εισαγωγή από Excel / CSV ----------
+const IMP_FIELDS = [
+  ["company", "Εταιρεία *", ["εταιρεια", "επωνυμια", "company", "organisation", "organization", "εκθετης", "exhibitor", "brand"]],
+  ["sector", "Κλάδος", ["κλαδος", "sector", "industry", "δραστηριοτητα", "activity"]],
+  ["country", "Χώρα", ["χωρα", "country"]],
+  ["cname", "Επαφή (ονοματεπώνυμο)", ["ονοματεπωνυμο", "contact person", "contact", "επαφη", "υπευθυνος", "full name", "name"]],
+  ["crole", "Θέση", ["θεση", "position", "job title", "title", "role"]],
+  ["cphone", "Τηλέφωνο", ["τηλεφωνο", "phone", "tel", "mobile", "κινητο"]],
+  ["cemail", "Email", ["email", "e-mail", "mail"]],
+  ["sqm", "Τ.μ.", ["τ.μ", "τμ", "sqm", "m2", "τετραγωνικα"]],
+  ["notes", "Σημειώσεις lead", ["σημειωσεις", "notes", "σχολια", "comments", "remarks"]],
+  ["lcomments", "Αρχικά σχόλια List", ["αρχικα σχολια"]]
+];
+let imp = null;
+function openImport() {
+  if (!window.XLSX) return toast("Η εισαγωγή χρειάζεται σύνδεση στο internet (φόρτωση βιβλιοθήκης Excel).", true);
+  imp = { step: 1 }; cur = { kind: "import", fd: {}, pre: {} };
+  $("#mbox").classList.add("wide"); $("#modal").classList.add("on"); drawImport();
+}
+function impHead(title) {
+  const st = ["Αρχείο", "Αντιστοίχιση", "Έλεγχος", "Εισαγωγή"];
+  return `<div class="mh"><h2>${esc(title)}</h2><button class="x-close" id="mClose" aria-label="Κλείσιμο">×</button></div>
+  <div class="mb"><div class="imp-steps">${st.map((x, i) => `<span class="${imp.step === i + 1 ? "on" : ""}">${i + 1}. ${x}</span>`).join("")}</div>`;
+}
+function drawImport() {
+  const mb = $("#mbox");
+  if (imp.step === 1) {
+    mb.innerHTML = impHead("Εισαγωγή από Excel / CSV") + `<p style="margin-top:0">Διαλέξτε ένα αρχείο <b>.xlsx</b> ή <b>.csv</b> με μία εταιρεία ανά γραμμή και τίτλους στηλών στην πρώτη γραμμή (π.χ. Εταιρεία, Κλάδος, Χώρα, Ονοματεπώνυμο, Τηλέφωνο, Email).</p>
+      <div class="drop" id="impDrop"><p style="margin:0 0 12px">Σύρετε εδώ το αρχείο</p><button class="btn pri" id="impPick">Επιλογή αρχείου</button><input type="file" id="impFile" accept=".xlsx,.xls,.csv" hidden></div>
+      <p class="muted" style="font-size:13px">Πριν γραφτεί οτιδήποτε θα δείτε προεπισκόπηση με τις εταιρείες που υπάρχουν ήδη ή μοιάζουν με υπάρχουσες.</p></div>
+      <div class="mf"><span class="msg" id="fmsg"></span><button class="btn" id="mCancel">Άκυρο</button></div>`;
+    const d = $("#impDrop"), fi = $("#impFile");
+    $("#impPick").onclick = () => fi.click(); fi.onchange = () => readImpFile(fi.files[0]);
+    d.ondragover = e => { e.preventDefault(); d.classList.add("on"); }; d.ondragleave = () => d.classList.remove("on");
+    d.ondrop = e => { e.preventDefault(); d.classList.remove("on"); readImpFile(e.dataTransfer.files[0]); };
+  } else if (imp.step === 2) {
+    const S = Core.S.lists, years = yearsAll();
+    mb.innerHTML = impHead(`Αντιστοίχιση στηλών – ${imp.name}`) + `
+      ${imp.sheets.length > 1 ? `<label style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:13px">Φύλλο<select id="impSheet">${opt(imp.sheets, imp.sheet)}</select></label>` : ""}
+      <p class="muted" style="margin-top:0;font-size:13px">${imp.rows.length} γραμμές δεδομένων. Για κάθε πεδίο του CRM διαλέξτε από ποια στήλη του αρχείου έρχεται (όσες αναγνωρίστηκαν έχουν ήδη συμπληρωθεί).</p>
+      <fieldset><legend>Στήλες αρχείου</legend><div class="fg">${IMP_FIELDS.map(([k, l]) => `<label>${esc(l)}<select data-map="${k}"><option value="">— (δεν υπάρχει)</option>${imp.headers.map((h, i) => `<option value="${i}"${imp.map[k] === i ? " selected" : ""}>${esc(h || "Στήλη " + (i + 1))}${imp.rows[0] && imp.rows[0][i] !== undefined && String(imp.rows[0][i]).trim() ? " – π.χ. " + esc(String(imp.rows[0][i]).slice(0, 30)) : ""}</option>`).join("")}</select></label>`).join("")}</div></fieldset>
+      <fieldset><legend>Ίδιες τιμές για όλα τα νέα leads</legend><div class="fg">
+        <label>Χρονιά *<select id="impYear">${opt(years, imp.def.year)}</select></label>
+        <label>Προέλευση<select id="impSource">${opt(list("Προέλευση"), imp.def.source, "—")}</select></label>
+        <label>Πορεία ενδιαφέροντος<select id="impStage">${opt(list("Πορεία ενδιαφέροντος"), imp.def.stage, "—")}</select></label>
+        <label>Hall<select id="impHall">${opt(list("Hall"), imp.def.hall, "—")}</select></label>
+        ${fieldHTML(F("handler", "Χειριστής (ένας ή περισσότεροι)", "multi", { list: "Χειριστής" }), imp.def.handler)}
+        <label class="full" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" id="impLog" style="width:18px;height:18px;min-height:0"${imp.def.log ? " checked" : ""}>Καταγραφή ενέργειας «Εισαγωγή από ${esc(imp.name)}» σε κάθε νέο lead (αλλιώς θα εμφανίζονται ως «Καμία επαφή»)</label>
+      </div></fieldset></div>
+      <div class="mf"><span class="msg" id="fmsg"></span><button class="btn" id="impBack">Πίσω</button><button class="btn pri" id="impNext">Έλεγχος γραμμών →</button></div>`;
+    const mm = mb.querySelector(".mchk"); if (mm) mm.onchange = () => { mb.querySelector('input[type=hidden][name="handler"]').value = [...mm.querySelectorAll("input:checked")].map(x => x.value).join(", "); };
+    if ($("#impSheet")) $("#impSheet").onchange = e => { loadImpSheet(e.target.value); drawImport(); };
+    $("#impBack").onclick = () => { imp.step = 1; drawImport(); };
+    $("#impNext").onclick = () => {
+      mb.querySelectorAll("[data-map]").forEach(s => imp.map[s.dataset.map] = s.value === "" ? undefined : +s.value);
+      imp.def = { year: +$("#impYear").value, source: $("#impSource").value, stage: $("#impStage").value, hall: $("#impHall").value,
+        handler: mb.querySelector('input[type=hidden][name="handler"]').value, log: $("#impLog").checked };
+      if (imp.map.company === undefined) { $("#fmsg").textContent = "⚠️ Διαλέξτε ποια στήλη έχει την «Εταιρεία»."; $("#fmsg").className = "msg err"; return; }
+      buildPlan(); imp.step = 3; drawImport();
+    };
+  } else if (imp.step === 3) {
+    const P = imp.plan, cnt = a => P.filter(p => p.act === a).length;
+    const lbl = { newco: "Νέα εταιρεία + lead", lead: "Lead σε υπάρχουσα", contact: "Μόνο επαφή", skip: "Παράλειψη" };
+    mb.innerHTML = impHead(`Έλεγχος – ${imp.rows.length} γραμμές`) + `
+      <div class="kpis"><div class="kpi g"><b id="kNew">${cnt("newco")}</b><span>νέες εταιρείες</span></div><div class="kpi"><b id="kLead">${cnt("lead")}</b><span>leads σε υπάρχουσες</span></div>
+      <div class="kpi"><b id="kCon">${cnt("contact")}</b><span>μόνο επαφή</span></div><div class="kpi a"><b>${P.filter(p => p.warn).length}</b><span>μοιάζουν με υπάρχουσα – ελέγξτε</span></div><div class="kpi"><b id="kSkip">${cnt("skip")}</b><span>παραλείπονται</span></div></div>
+      <p class="muted" style="margin-top:0;font-size:13px">Οι κίτρινες γραμμές μοιάζουν με εταιρεία που υπάρχει ήδη: διαλέξτε αν είναι νέα ή η ίδια. Μπορείτε να αλλάξετε την ενέργεια σε κάθε γραμμή.</p>
+      <div class="scroll" style="max-height:52vh"><table class="imp-tbl"><thead><tr><th>#</th><th>Εταιρεία (αρχείο)</th><th>Τι θα γίνει</th><th>Επαφή</th><th>Email</th><th>Σημείωση</th></tr></thead><tbody>
+      ${P.map((p, i) => `<tr class="${p.act === "skip" ? "st-skip" : p.warn ? "st-warn" : ""}"><td class="num">${p.row}</td><td><b>${esc(p.name)}</b></td><td>${p.fixed ? esc(lbl[p.act]) + (p.code ? ` <span class="muted">(κωδ. ${p.code})</span>` : "") :
+        `<select data-pi="${i}"><option value="new"${p.act === "newco" ? " selected" : ""}>Νέα εταιρεία</option>${p.sim.map(x => `<option value="${x.c.code}"${p.code === x.c.code ? " selected" : ""}>Ίδια με: ${esc(x.c.name)} (κωδ. ${x.c.code})</option>`).join("")}<option value="skip"${p.act === "skip" ? " selected" : ""}>Παράλειψη</option></select>${p.act === "contact" ? ` <span class="muted">έχει ήδη lead – μόνο επαφή</span>` : p.act === "lead" ? ` <span class="muted">+ lead ${imp.def.year}</span>` : ""}`}</td>
+        <td>${esc(p.f.cname)}</td><td>${esc(p.f.cemail)}</td><td class="muted">${esc(p.note)}</td></tr>`).join("")}
+      </tbody></table></div></div>
+      <div class="mf"><span class="msg" id="fmsg"></span><button class="btn" id="impBack">Πίσω</button><button class="btn pri" id="impGo">Εισαγωγή ${P.filter(p => p.act !== "skip").length} γραμμών</button></div>`;
+    mb.querySelector("tbody").onchange = e => {
+      const s = e.target.closest("[data-pi]"); if (!s) return; const p = P[+s.dataset.pi];
+      if (s.value === "new") { p.act = "newco"; p.code = 0; } else if (s.value === "skip") p.act = "skip"; else { p.code = +s.value; p.act = hasLead(p.code, imp.def.year) ? "contact" : "lead"; }
+      drawImport();
+    };
+    $("#impBack").onclick = () => { imp.step = 2; drawImport(); };
+    $("#impGo").onclick = runImport;
+  } else {
+    const r = imp.res, done = r.done, tot = imp.plan.filter(p => p.act !== "skip").length;
+    mb.innerHTML = impHead(imp.running ? "Εισαγωγή…" : "Η εισαγωγή ολοκληρώθηκε") + `
+      <div class="prog"><i style="width:${tot ? 100 * done / tot : 100}%"></i></div><p style="margin:0 0 10px">${done} από ${tot} γραμμές</p>
+      <div class="kpis"><div class="kpi g"><b>${r.co}</b><span>νέες εταιρείες</span></div><div class="kpi g"><b>${r.leads}</b><span>νέα leads</span></div><div class="kpi"><b>${r.contacts}</b><span>επαφές</span></div><div class="kpi"><b>${r.skipped}</b><span>παραλείφθηκαν</span></div><div class="kpi r"><b>${r.errors.length}</b><span>σφάλματα</span></div></div>
+      ${r.errors.length ? `<div class="scroll" style="max-height:30vh"><table class="imp-tbl"><thead><tr><th>Γραμμή</th><th>Εταιρεία</th><th>Σφάλμα</th></tr></thead><tbody>${r.errors.map(x => `<tr><td class="num">${x.row}</td><td>${esc(x.name)}</td><td>${esc(x.msg)}</td></tr>`).join("")}</tbody></table></div>` : ""}</div>
+      <div class="mf"><span class="msg"></span>${imp.running ? "" : `<button class="btn pri" id="mCancel">Κλείσιμο</button>`}</div>`;
+  }
+  const c1 = $("#mClose"), c2 = $("#mCancel");
+  if (c1) c1.onclick = () => { if (!imp.running) closeForm(); };
+  if (c2) c2.onclick = () => { if (!imp.running) closeForm(); };
+}
+async function readImpFile(f) {
+  if (!f) return;
+  try {
+    const buf = new Uint8Array(await f.arrayBuffer());
+    let wb;
+    if (/\.csv$/i.test(f.name)) {
+      let txt = new TextDecoder("utf-8").decode(buf);
+      if (txt.includes("\uFFFD")) txt = new TextDecoder("windows-1253").decode(buf);   // παλιά ελληνικά CSV του Excel
+      wb = XLSX.read(txt, { type: "string", raw: true });
+    } else wb = XLSX.read(buf, { type: "array", cellDates: true });
+    imp.wb = wb; imp.name = f.name; imp.sheets = wb.SheetNames;
+    loadImpSheet(wb.SheetNames[0]);
+    imp.def = { year: ui.year, source: "", stage: list("Πορεία ενδιαφέροντος")[0] || "", hall: "", handler: ui.me || "", log: false };
+    imp.step = 2; drawImport();
+  } catch (e) { console.error(e); const m = $("#fmsg"); if (m) { m.textContent = "⚠️ Δεν διαβάστηκε το αρχείο: " + (e.message || e); m.className = "msg err"; } }
+}
+function loadImpSheet(name) {
+  imp.sheet = name;
+  const aoa = XLSX.utils.sheet_to_json(imp.wb.Sheets[name], { header: 1, defval: "", blankrows: false, raw: false });
+  let h = 0; while (h < aoa.length - 1 && aoa[h].filter(x => String(x).trim()).length < 2) h++;   // πρώτη γραμμή με ≥2 τίτλους
+  imp.headers = (aoa[h] || []).map(x => String(x).trim()); imp.rows = aoa.slice(h + 1).filter(r => r.some(x => String(x).trim())); imp.first = h + 2;
+  imp.map = {}; const used = new Set();
+  for (const [k, , keys] of IMP_FIELDS) {
+    const i = imp.headers.findIndex((hd, i) => !used.has(i) && keys.some(w => { const a = fold(hd), b = fold(w); return a === b || (b.length > 3 && a.includes(b)); }));
+    if (i >= 0) { imp.map[k] = i; used.add(i); }
+  }
+}
+const hasLead = (code, year) => Core.derive().leads.some(l => l.code === code && l.year === year);
+function buildPlan() {
+  const seen = new Map(), get = (r, k) => imp.map[k] === undefined ? "" : String(r[imp.map[k]] ?? "").trim();
+  imp.plan_ = [];
+  imp.plan = imp.rows.map((r, i) => imp.plan_[i] = (() => {
+    const f = {}; for (const [k] of IMP_FIELDS) f[k] = get(r, k);
+    if (f.country) { const c = countryOf(f.country); if (c) f.country = c.en; }
+    const name = f.company.replace(/\s+/g, " "), row = imp.first + i, p = { row, name, f, sim: [], act: "skip", code: 0, note: "", fixed: true, warn: false };
+    if (!name) { p.note = "κενή εταιρεία"; return p; }
+    const key = companyKey(name) || Core.norm(name);
+    if (seen.has(key)) { const first = imp.plan_[seen.get(key)]; p.act = "contact"; p.note = `ίδια εταιρεία με τη γραμμή ${first.row}`; p.same = first; if (!f.cname && !f.cphone && !f.cemail) { p.act = "skip"; p.note += " – χωρίς επαφή"; } return p; }
+    seen.set(key, i);
+    const hit = Core.findCompany(name);
+    if (hit) { p.code = hit.id; if (hasLead(hit.id, imp.def.year)) { p.act = f.cname ? "contact" : "skip"; p.note = `έχει ήδη lead ${imp.def.year}` + (f.cname ? " – θα μπει μόνο η επαφή" : ""); } else { p.act = "lead"; p.note = "υπάρχει ήδη η εταιρεία"; } return p; }
+    p.sim = similarCompanies(name); p.fixed = false;
+    if (p.sim.length && p.sim[0].sc >= 0.999) { p.code = p.sim[0].c.code; p.act = hasLead(p.code, imp.def.year) ? "contact" : "lead"; p.note = "ίδιο όνομα με άλλη γραφή"; }
+    else { p.act = "newco"; if (p.sim.length) { p.warn = true; p.note = "μοιάζει με υπάρχουσα"; } }
+    return p;
+  })());
+}
+async function runImport() {
+  const D = imp.def, todo = imp.plan.filter(p => p.act !== "skip");
+  imp.res = { done: 0, co: 0, leads: 0, contacts: 0, skipped: imp.plan.length - todo.length, errors: [] }; imp.running = true; imp.step = 4; drawImport();
+  for (const p of todo) {
+    const f = p.f, target = p.code ? String(p.code) : p.name;
+    try {
+      if (p.act === "contact") {
+        if (f.cname || f.cphone || f.cemail) {
+          const ref = p.same ? (p.same.code ? String(p.same.code) : p.same.name) : target;
+          if (p.same && p.same.act === "skip") { imp.res.skipped++; imp.res.done++; continue; }
+          try { await Core.newContact({ company: ref, name: f.cname || "Γενικά στοιχεία", role: f.crole, phone: f.cphone, email: f.cemail, primary: "Όχι" }); imp.res.contacts++; }
+          catch (e) { if (/υπάρχει ήδη/.test(e.message)) imp.res.skipped++; else throw e; }
+        } else imp.res.skipped++;
+      } else {
+        const r = await Core.newLead({ ...f, company: target, year: D.year, source: D.source, stage: D.stage, hall: D.hall, handler: D.handler,
+          atype: D.log ? "Σχόλιο" : "", adesc: D.log ? `Εισαγωγή από ${imp.name}` : "" });
+        imp.res.leads++; if (/νέα εταιρεία/.test(r.msg)) imp.res.co++; if (/επαφή/.test(r.msg)) imp.res.contacts++;
+      }
+    } catch (e) { imp.res.errors.push({ row: p.row, name: p.name, msg: e.message || String(e) }); }
+    imp.res.done++;
+    if (imp.res.done % 5 === 0 || imp.res.done === todo.length) drawImport();
+  }
+  imp.running = false; drawImport(); refreshDatalist(); render();
+  toast(`Εισαγωγή: ${imp.res.co} νέες εταιρείες, ${imp.res.leads} leads, ${imp.res.contacts} επαφές.`, imp.res.errors.length > 0);
+}
+
+// ---------- εγκατάσταση ως εφαρμογή ----------
+let installEvt = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; const b = $("#installBtn"); if (b) b.hidden = false; });
+window.addEventListener("appinstalled", () => { installEvt = null; const b = $("#installBtn"); if (b) b.hidden = true; toast("Η εφαρμογή εγκαταστάθηκε."); });
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+
 boot();
 }
 </script>
