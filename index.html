@@ -213,6 +213,31 @@ const Core = (() => {
     version++;
   }
 
+  // ---------- τοπική ενημέρωση: μόνο η εγγραφή που άλλαξε ----------
+  const KEY = { companies: "E", leads: "L", actions: "A", contacts: "P" };
+  function putRow(table, r) {
+    if (!r) return;
+    if (table === "lists") { (S.lists[r.list_name] = S.lists[r.list_name] || Array(25).fill(""))[r.position] = r.value; return; }
+    const k = KEY[table]; if (!k) return;
+    const id = r[MAP[k].id], item = { id, v: toV(k, r) }, arr = rows[k];
+    const i = arr.findIndex(x => x.id === id);
+    if (i >= 0) arr[i] = item;
+    else { let j = arr.length; while (j > 0 && arr[j - 1].id > id) j--; arr.splice(j, 0, item); }   // κρατά τη σειρά (= σειρά ιστορικού)
+  }
+  function dropRow(table, r) {
+    if (!r) return;
+    if (table === "lists") { const L = S.lists[r.list_name]; if (L && r.position !== undefined) L[r.position] = ""; return; }
+    const k = KEY[table]; if (!k) return;
+    const id = r[MAP[k].id]; if (id === undefined) return;
+    rows[k] = rows[k].filter(x => x.id !== id);
+    if (k === "E") for (const c of ["L", "A", "P"]) rows[c] = rows[c].filter(x => codeOf(x) !== id);   // ό,τι σβήνει η βάση με cascade
+  }
+  function applyChange(p) {   // ειδοποίηση από το Supabase για αλλαγή άλλου χρήστη
+    if (!p || !p.table) return false;
+    if (p.eventType === "DELETE") dropRow(p.table, p.old); else putRow(p.table, p.new);
+    version++; return true;
+  }
+
   // ---------- αναζητήσεις ----------
   const codeOf = r => parseCode(r.v["Επιλογή εταιρείας"]);
   function findCompany(input) {
@@ -225,8 +250,12 @@ const Core = (() => {
   function latestYear(code) { let b = 0; for (const r of rows.L) if (codeOf(r) === code) b = Math.max(b, Number(r.v["Χρονιά"]) || 0); return b; }
   const listVal = (h, i) => (S.lists[h] || [])[i] || "";
 
-  const ins = async (k, vals) => ok(await sb.from(MAP[k].table).insert(toDb(k, vals)).select().single());
-  const upd = async (k, id, obj) => { if (Object.keys(obj).length) ok(await sb.from(MAP[k].table).update(obj).eq(MAP[k].id, id)); };
+  const ins = async (k, vals) => { const r = ok(await sb.from(MAP[k].table).insert(toDb(k, vals)).select().single()); putRow(MAP[k].table, r); version++; return r; };
+  const upd = async (k, id, obj) => {
+    if (!Object.keys(obj).length) return;
+    const rs = ok(await sb.from(MAP[k].table).update(obj).eq(MAP[k].id, id).select());
+    (rs || []).forEach(r => putRow(MAP[k].table, r)); version++;
+  };
 
   // ---------- 1. Νέο lead ----------
   async function newLead(f) {
@@ -264,7 +293,6 @@ const Core = (() => {
       await ins("A", { "Ημερομηνία": when, "Επιλογή εταιρείας": code, "Χρονιά lead": year, "Τύπος ενέργειας": atype || "Σχόλιο", "Περιγραφή": adesc || "Νέο lead", "Χειριστής": handler });
       what.push("ενέργεια");
     }
-    await load();
     return { code, msg: `Αποθηκεύτηκε «${name}»: ${what.join(", ")}.` };
   }
 
@@ -290,7 +318,6 @@ const Core = (() => {
     await upd("L", lead.id, toDb("L", u));
     const stage = u["Πορεία ενδιαφέροντος"] || lead.v["Πορεία ενδιαφέροντος"], reason = u["Λόγος ακύρωσης"] || lead.v["Λόγος ακύρωσης"];
     const note = norm(stage).indexOf("ακύρωση") === 0 && isBlank(reason) ? " Συμπληρώστε και «Λόγο ακύρωσης»." : "";
-    await load();
     return { code, warn: note !== "", msg: (desc !== "" ? `Αποθηκεύτηκε ενέργεια για «${name}» (${year})` + (changed.length ? ` · ενημερώθηκαν: ${changed.join(", ")}` : "")
       : `Ενημερώθηκε το lead «${name}» (${year}) χωρίς ενέργεια: ${changed.join(", ")}`) + "." + note };
   }
@@ -309,10 +336,9 @@ const Core = (() => {
     let replaced = 0;
     if (primary && choice.indexOf("αντί") >= 0) {
       replaced = mine.filter(r => r.v["Κύρια επαφή"] === "Ναι").length;
-      if (replaced) ok(await sb.from("contacts").update({ is_primary: false }).eq("company_code", code).eq("is_primary", true));
+      if (replaced) { const rs = ok(await sb.from("contacts").update({ is_primary: false }).eq("company_code", code).eq("is_primary", true).select()); (rs || []).forEach(r => putRow("contacts", r)); }
     }
     await ins("P", { "Επιλογή εταιρείας": code, "Ονοματεπώνυμο": name, "Θέση": tx("role"), "Τηλέφωνο": tx("phone"), "Email": tx("email"), "Κύρια επαφή": primary ? "Ναι" : "Όχι", "Σημειώσεις": tx("notes") });
-    await load();
     return { code, msg: `Προστέθηκε η επαφή «${name}» στην «${cname}»` + (primary ? (replaced ? " ως η νέα κύρια επαφή (η παλιά έγινε «Όχι»)." : " ως κύρια επαφή.") : ".") };
   }
 
@@ -335,8 +361,9 @@ const Core = (() => {
       const ids = rows.A.filter(r => codeOf(r) === code && autoYear(r) === year).map(r => r.id);
       for (let i = 0; i < ids.length; i += 200) ok(await sb.from("actions").delete().in("id", ids.slice(i, i + 200)));
       ok(await sb.from("leads").delete().eq("company_code", code).eq("year", year));
-    } else ok(await sb.from("companies").delete().eq("code", code));   // leads, ενέργειες, επαφές σβήνονται μαζί (cascade)
-    await load();
+      const idset = new Set(ids); rows.A = rows.A.filter(r => !idset.has(r.id)); rows.L = rows.L.filter(r => !(codeOf(r) === code && Number(r.v["Χρονιά"]) === year));
+    } else { ok(await sb.from("companies").delete().eq("code", code)); dropRow("companies", { code }); }   // leads, ενέργειες, επαφές σβήνονται μαζί (cascade)
+    version++;
     return { code: year ? code : 0, msg: year ? `Διαγράφηκε το lead ${year} της «${name}» και ${p.actions} ενέργειες του. Η εταιρεία και οι επαφές της έμειναν.`
       : `Διαγράφηκε η εταιρεία «${name}» μαζί με ${p.leads} leads, ${p.actions} ενέργειες και ${p.contacts} επαφές.` };
   }
@@ -349,12 +376,12 @@ const Core = (() => {
     if (list.map(norm).includes(norm(v))) throw new Error(`Το «${v}» υπάρχει ήδη στη λίστα.`);
     const free = list.findIndex(isBlank); if (free < 0) throw new Error(`Η λίστα «${header}» είναι γεμάτη (25).`);
     ok(await sb.from("lists").insert({ list_name: header, position: free, value: v }));
-    await load();
+    putRow("lists", { list_name: header, position: free, value: v }); version++;
     return { msg: header === "Χειριστής" ? `Προστέθηκε ο χειριστής «${v}».` : `Προστέθηκε «${v}» στη λίστα «${header}».` };
   }
   async function removeListValue(header, value) {
     ok(await sb.from("lists").delete().eq("list_name", header).eq("value", value));
-    await load();
+    const L = S.lists[header]; if (L) { const i = L.indexOf(value); if (i >= 0) L[i] = ""; } version++;
     return { msg: `Αφαιρέθηκε «${value}» από τη λίστα «${header}».` };
   }
 
@@ -367,7 +394,7 @@ const Core = (() => {
     const dup = rows.E.find(r => r !== co && norm(r.v["Εταιρεία"]) === norm(nn));
     if (dup) throw new Error(`Υπάρχει ήδη άλλη εταιρεία με όνομα «${nn}» (κωδ. ${dup.id}).`);
     const old = co.v["Εταιρεία"];
-    await upd("E", co.id, { name: nn }); await load();
+    await upd("E", co.id, { name: nn });
     return { code: co.id, msg: `Η «${old}» μετονομάστηκε σε «${nn}» – άλλαξε παντού.` };
   }
 
@@ -379,9 +406,9 @@ const Core = (() => {
       if (!MAP[k].cols[h] || ["Επιλογή εταιρείας", "Κωδ.", "Εταιρεία"].includes(h)) continue;
       if (String(vals[h] ?? "").trim() !== String(cur[h] ?? "").trim()) ch[h] = vals[h];
     }
-    await upd(k, id, toDb(k, ch, true)); await load();
+    await upd(k, id, toDb(k, ch, true));
   }
-  async function removeRow(k, id) { ok(await sb.from(MAP[k].table).delete().eq(MAP[k].id, id)); await load(); }
+  async function removeRow(k, id) { ok(await sb.from(MAP[k].table).delete().eq(MAP[k].id, id)); dropRow(MAP[k].table, { [MAP[k].id]: id }); version++; }
 
   // ---------- υπολογισμένα πεδία (ό,τι έκαναν οι τύποι του Excel) ----------
   let cache = null, cacheV = -1;
@@ -423,7 +450,7 @@ const Core = (() => {
   }
 
   return {
-    init(client) { sb = client; }, load, derive, newLead, newAction, newContact, remove, deletePreview, addListValue, removeListValue, rename, editRow, removeRow, row,
+    init(client) { sb = client; }, load, applyChange, derive, newLead, newAction, newContact, remove, deletePreview, addListValue, removeListValue, rename, editRow, removeRow, row,
     findCompany, parseCode, today, norm, latestYear, get S() { return S; }, get version() { return version; }, get rows() { return rows; }
   };
 })();
@@ -472,8 +499,18 @@ async function startApp(session) {
   if (!ui.me) { const h = list("Χειριστής").find(h => !h.includes(",") && Core.norm(h).split(" ")[0] === Core.norm(ui.email).split(/[.@_]/)[0]); if (h) ui.me = h; }
   refreshDatalist(); render();
   if (!channel) {
-    channel = sb.channel("crm-live").on("postgres_changes", { event: "*", schema: "public" }, () => { clearTimeout(reloadT); reloadT = setTimeout(reloadData, 700); })
-      .subscribe(st => { ui.live = st === "SUBSCRIBED" ? "on" : ""; const d = $("#liveDot"); if (d) d.dataset.on = ui.live; });
+    let wasDown = false;
+    channel = sb.channel("crm-live")
+      .on("postgres_changes", { event: "*", schema: "public" }, p => { if (Core.applyChange(p)) { clearTimeout(reloadT); reloadT = setTimeout(() => { refreshDatalist(); rerenderAll(); }, 250); } })
+      .subscribe(st => {
+        ui.live = st === "SUBSCRIBED" ? "on" : ""; const d = $("#liveDot"); if (d) d.dataset.on = ui.live;
+        if (st === "SUBSCRIBED") { if (wasDown) reloadData(); wasDown = false; }   // μετά από διακοπή: πλήρης συγχρονισμός
+        else if (st === "CHANNEL_ERROR" || st === "TIMED_OUT" || st === "CLOSED") wasDown = true;
+      });
+    // ασφάλεια: αν η καρτέλα έμεινε κρυμμένη >5 λεπτά ή γύρισε το internet, ξαναφορτώνουμε μία φορά
+    let hiddenAt = 0;
+    document.addEventListener("visibilitychange", () => { if (document.hidden) hiddenAt = Date.now(); else if (hiddenAt && Date.now() - hiddenAt > 5 * 60e3) reloadData(); });
+    window.addEventListener("online", reloadData);
   }
 }
 async function reloadData() {
