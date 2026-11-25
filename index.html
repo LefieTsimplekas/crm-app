@@ -76,6 +76,19 @@ tr.st-skip td{opacity:.55}tr.st-warn td{background:var(--ambbg)}
 .help .toc{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}.help .toc a{border:1px solid var(--line);border-radius:99px;padding:3px 11px;font-size:13px;text-decoration:none;color:var(--ink);background:var(--card)}
 .help .tip{background:var(--grnbg);border-radius:8px;padding:8px 12px;margin:8px 0}.help .warn{background:var(--ambbg);border-radius:8px;padding:8px 12px;margin:8px 0}
 .help table{max-width:760px;margin:6px 0}.help td,.help th{font-size:13.5px}
+.rep{max-width:1000px}.rep h1{font-size:26px;margin:0}.rep h2{font-size:17px;margin:22px 0 8px}.rep .meta{color:var(--mute);font-size:13px;margin:4px 0 14px}
+.rep section{break-inside:avoid}.rep .kpis{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}.rep table{font-size:12.5px}.rep td,.rep th{padding:4px 7px}
+.rep .chg{font-size:11.5px;color:var(--mute);display:block}
+@media print{
+  :root,:root[data-theme=dark]{color-scheme:light}
+  body{background:#fff!important;color:#000;font-size:10.5pt}
+  .top,nav,.acts,.no-print,#toast,#drawer,.ov,.modal{display:none!important}
+  main{padding:0!important}.rep{max-width:none}.scroll{overflow:visible;border:0}
+  .kpi{border:1px solid #bbb!important}.rep h2{margin-top:14px}
+  tr.r td,tr.a td{-webkit-print-color-adjust:exact;print-color-adjust:exact}.bar i,.dot{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  th{position:static!important;white-space:normal!important}td.nw,td.md,td.co,td.em,td.ph,td.wide{white-space:normal!important;min-width:0!important}th .si{display:none}a{color:#000;text-decoration:none}.rep table{font-size:9pt;width:100%!important}.rep th{font-size:8pt}.rep td{overflow-wrap:break-word}
+  @page{size:A4;margin:12mm}
+}
 .cbx{position:relative}.cbx-list{position:absolute;left:0;right:0;top:100%;z-index:40;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-height:260px;overflow:auto;margin-top:2px}
 .cbx-list div{padding:6px 10px;cursor:pointer;color:var(--ink);font-size:14px}.cbx-list div small{color:var(--mute);margin-left:6px}.cbx-list div[aria-selected=true],.cbx-list div:hover{background:var(--bg2)}
 .chip{border:1px solid var(--line);background:var(--bg2);border-radius:99px;padding:5px 12px;font-size:13px}
@@ -255,10 +268,8 @@ const Core = (() => {
   }
   async function load() {
     const [E, L, A, P, Ls] = await Promise.all([fetchAll("companies", "code"), fetchAll("leads", "id"), fetchAll("actions", "id"), fetchAll("contacts", "id"), fetchAll("lists", "position")]);
-    rows = {
-      E: E.map(r => ({ id: r.code, v: toV("E", r) })), L: L.map(r => ({ id: r.id, v: toV("L", r) })),
-      A: A.map(r => ({ id: r.id, v: toV("A", r) })), P: P.map(r => ({ id: r.id, v: toV("P", r) }))
-    };
+    const it = (k, r, id) => ({ id, v: toV(k, r), created: r.created_at || "" });
+    rows = { E: E.map(r => it("E", r, r.code)), L: L.map(r => it("L", r, r.id)), A: A.map(r => it("A", r, r.id)), P: P.map(r => it("P", r, r.id)) };
     const lists = {};
     for (const r of Ls) { (lists[r.list_name] = lists[r.list_name] || Array(25).fill(""))[r.position] = r.value; }
     S = { lists };
@@ -271,7 +282,7 @@ const Core = (() => {
     if (!r) return;
     if (table === "lists") { (S.lists[r.list_name] = S.lists[r.list_name] || Array(25).fill(""))[r.position] = r.value; return; }
     const k = KEY[table]; if (!k) return;
-    const id = r[MAP[k].id], item = { id, v: toV(k, r) }, arr = rows[k];
+    const id = r[MAP[k].id], item = { id, v: toV(k, r), created: r.created_at || "" }, arr = rows[k];
     const i = arr.findIndex(x => x.id === id);
     if (i >= 0) arr[i] = item;
     else { let j = arr.length; while (j > 0 && arr[j - 1].id > id) j--; arr.splice(j, 0, item); }   // κρατά τη σειρά (= σειρά ιστορικού)
@@ -549,7 +560,7 @@ const Core = (() => {
     const leads = [];
     for (const r of rows.L) {
       const code = codeOf(r), co = comp.get(code);
-      const l = { i: r.id, code, year: num(r.v["Χρονιά"]), v: r.v, co, name: co ? co.name : "?", acts: [], last: 0, lastDesc: "" };
+      const l = { i: r.id, code, year: num(r.v["Χρονιά"]), v: r.v, co, name: co ? co.name : "?", acts: [], last: 0, lastDesc: "", created: r.created };
       leads.push(l); if (co) co.leads.push(l);
     }
     const leadBy = new Map(leads.map(l => [l.code + "|" + l.year, l]));
@@ -956,7 +967,7 @@ function refreshDatalist() {
 function render() {
   const app = $("#app");
   if (!ui.loaded) { app.innerHTML = welcomeHTML(); bindWelcome(); return; }
-  const views = [["track", "Παρακολούθηση"], ["companies", "Εταιρείες"], ["history", "Ενέργειες"], ["summary", "Σύνοψη"], ["settings", "Ρυθμίσεις"], ["help", "Οδηγίες"]];
+  const views = [["track", "Παρακολούθηση"], ["companies", "Εταιρείες"], ["history", "Ενέργειες"], ["summary", "Σύνοψη"], ["report", "Αναφορά"], ["settings", "Ρυθμίσεις"], ["help", "Οδηγίες"]];
   app.innerHTML = `
   <header class="top"><h1>Leads CRM</h1><span class="file" title="${esc(ui.email)}"><i id="liveDot" class="live" data-on="${ui.live}"></i>${esc(ui.email)}</span><span class="sp"></span>
     <button class="btn ghost" id="installBtn"${installEvt ? "" : " hidden"}>Εγκατάσταση εφαρμογής</button>
@@ -967,7 +978,7 @@ function render() {
     <button class="btn pri" data-form="lead">+ Νέο lead</button><button class="btn" data-form="action">+ Ενέργεια / σχόλιο</button>
     <button class="btn" data-form="contact">+ Επαφή</button><button class="btn" data-form="del">Διαγραφή</button><button class="btn" id="impBtn">Εισαγωγή από Excel</button>
   </div>
-  <main id="view">${({ track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML, help: helpHTML })[ui.view]()}</main>`;
+  <main id="view">${({ track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML, help: helpHTML, report: reportHTML })[ui.view]()}</main>`;
   bindMain(); applySorts($("#view"));
 }
 
@@ -1151,10 +1162,83 @@ function sourceHTML(d, Y) {
   </tbody></table></div><p class="muted" style="font-size:12.5px;margin:6px 0 0">Μετατροπή = εκθέτες / (εκθέτες + ακυρώσεις). Πατήστε τον τίτλο μιας στήλης για ταξινόμηση.</p>` : `<div class="empty">Κανένα lead για ${Y}.</div>`}</div>`;
 }
 
+// ---- Αναφορά (για PDF) ----
+function repPeriod() {
+  const t = Core.today(), d = new Date(), y = d.getFullYear(), m = d.getMonth();
+  const ser = dt => Math.floor(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()) / 864e5) + 25569;
+  const p = ui.rp || "7";
+  if (p === "7") return [t - 6, t, "Τελευταίες 7 ημέρες"];
+  if (p === "30") return [t - 29, t, "Τελευταίες 30 ημέρες"];
+  if (p === "m") return [ser(new Date(y, m, 1)), t, "Τρέχων μήνας"];
+  if (p === "pm") return [ser(new Date(y, m - 1, 1)), ser(new Date(y, m, 0)), "Προηγούμενος μήνας"];
+  const a = fromInputDate(ui.rfrom) || t - 6, b = fromInputDate(ui.rto) || t;
+  return [Math.min(a, b), Math.max(a, b), "Προσαρμοσμένη περίοδος"];
+}
+function reportHTML() {
+  const d = Core.derive(), Y = ui.ry || ui.year, H = ui.rh || "", t = Core.today();
+  const [from, to, plabel] = repPeriod();
+  const byH = h => !H || Core.norm(h).split(",").map(x => x.trim()).includes(Core.norm(H));
+  const S = Core.S.lists, win = S["Πορεία ενδιαφέροντος"][5], lost = S["Πορεία ενδιαφέροντος"][6], sp = S["Χορηγία"];
+  const L = y => d.leads.filter(l => l.year === y && byH(l.handler));
+  const ls = L(Y), lp = L(Y - 1);
+  const acts = d.acts.filter(a => a.date >= from && a.date <= to && byH(a.handler)).sort((a, b) => b.date - a.date || b.i - a.i);
+  const sum = a => a.reduce((s, l) => s + (Number(l.v["Τ.μ."]) || 0), 0);
+  const ex = ls.filter(l => l.stage === win), ca = ls.filter(l => l.stage === lost), exP = lp.filter(l => l.stage === win), caP = lp.filter(l => l.stage === lost);
+  const conv = (e, c) => e.length + c.length ? Math.round(100 * e.length / (e.length + c.length)) + "%" : "–";
+  // νέα leads της περιόδου (εξαιρούνται όσα ήρθαν με την αρχική μεταφορά από το Excel)
+  const cts = d.leads.map(l => l.created).filter(Boolean), cnt = {}; cts.forEach(c => cnt[c] = (cnt[c] || 0) + 1);
+  const bulk = new Set(Object.keys(cnt).filter(k => cnt[k] > 20));
+  const isoSer = s => { const x = new Date(s); return isNaN(x) ? 0 : Math.floor(Date.UTC(x.getFullYear(), x.getMonth(), x.getDate()) / 864e5) + 25569; };
+  const newLeads = d.leads.filter(l => l.created && !bulk.has(l.created) && isoSer(l.created) >= from && isoSer(l.created) <= to && byH(l.handler));
+  const open = ls.filter(l => l.open).map(l => ({ l, days: l.last ? t - Math.floor(l.last) : 99999 }));
+  const late = open.filter(x => x.days >= ui.red).sort((a, b) => b.days - a.days);
+  const hs = list("Χειριστής").filter(h => !h.includes(",") && (!H || Core.norm(h) === Core.norm(H)));
+  const types = list("Τύπος ενέργειας").filter(x => acts.some(a => a.type === x));
+  const nf = n => n ? Number(n).toLocaleString("el-GR", { maximumFractionDigits: 1 }) : "";
+  const kpi = (v, l, c, prev) => `<div class="kpi ${c || ""}"><b>${v}</b><span>${l}${prev !== undefined ? `<span class="chg">${Y - 1}: ${prev}</span>` : ""}</span></div>`;
+  const stages = list("Πορεία ενδιαφέροντος"), mx = Math.max(1, ...stages.map(s => ls.filter(l => l.stage === s).length));
+  return `<div class="filters no-print">
+    <label>Περίοδος ενεργειών<select id="rP">${[["7", "Τελευταίες 7 ημέρες"], ["30", "Τελευταίες 30 ημέρες"], ["m", "Τρέχων μήνας"], ["pm", "Προηγούμενος μήνας"], ["c", "Προσαρμογή…"]].map(([v, l]) => `<option value="${v}"${(ui.rp || "7") === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+    ${(ui.rp || "7") === "c" ? `<label>Από<input type="date" id="rF" value="${toInputDate(from)}"></label><label>Έως<input type="date" id="rT" value="${toInputDate(to)}"></label>` : ""}
+    <label>Χρονιά leads<select id="rY">${opt(yearsAll(), Y)}</select></label>
+    <label>Χειριστής<select id="rH">${opt(list("Χειριστής").filter(h => !h.includes(",")), H, "Όλοι")}</select></label>
+    <button class="btn pri" id="rPrint">Αποθήκευση PDF / Εκτύπωση</button></div>
+  <article class="rep">
+  <h1>Αναφορά leads ${Y}${H ? " – " + esc(H) : ""}</h1>
+  <p class="meta">${plabel}: ${fmtD(from)} – ${fmtD(to)} · Δημιουργήθηκε ${new Date().toLocaleString("el-GR")} από ${esc(ui.email)}</p>
+
+  <section><h2>Εικόνα χρονιάς ${Y}</h2><div class="kpis">
+    ${kpi(ls.length, "Leads", "", lp.length)}${kpi(ls.filter(l => l.open).length, "Ανοιχτά")}${kpi(ex.length, "Εκθέτες", "g", exP.length)}
+    ${kpi(ls.filter(l => l.sponsor === sp[2]).length, "Χορηγοί", "g", lp.filter(l => l.sponsor === sp[2]).length)}${kpi(ca.length, "Ακυρώσεις", "", caP.length)}
+    ${kpi(nf(sum(ex)) || 0, "Τ.μ. εκθετών", "", nf(sum(exP)) || 0)}${kpi(conv(ex, ca), "Μετατροπή", "", conv(exP, caP))}</div></section>
+
+  <section><h2>Δραστηριότητα περιόδου</h2><div class="kpis">
+    ${kpi(acts.length, "Ενέργειες")}${kpi(new Set(acts.map(a => a.code)).size, "Εταιρείες με επαφή")}${kpi(newLeads.length, "Νέα leads")}
+    ${kpi(late.length, `Ανοιχτά ${ui.red}+ ημ. χωρίς επαφή`, late.length ? "r" : "")}${kpi(open.filter(x => x.days === 99999).length, "Ανοιχτά χωρίς καμία επαφή", "r")}</div>
+    <div class="scroll"><table data-sort-id="rh"><thead><tr><th>Χειριστής</th><th style="text-align:right">Ενέργειες</th><th style="text-align:right">Εταιρείες</th>${types.map(x => `<th style="text-align:right">${esc(x)}</th>`).join("")}<th style="text-align:right">Ανοιχτά leads</th><th style="text-align:right">Καθυστερημένα</th></tr></thead><tbody>
+    ${hs.map(h => { const ah = acts.filter(a => Core.norm(a.handler).includes(Core.norm(h))); const lh = open.filter(x => Core.norm(x.l.handler).includes(Core.norm(h)));
+      return `<tr style="cursor:default"><td>${esc(h)}</td><td class="num"><b>${ah.length}</b></td><td class="num">${new Set(ah.map(a => a.code)).size}</td>${types.map(x => `<td class="num">${ah.filter(a => a.type === x).length || ""}</td>`).join("")}<td class="num">${lh.length}</td><td class="num">${lh.filter(x => x.days >= ui.red).length}</td></tr>`; }).join("")}
+    </tbody></table></div></section>
+
+  <section><h2>Pipeline ${Y}</h2><div class="bars"><div class="muted" style="font-size:12px"><span></span><span></span><span style="text-align:right">${Y}</span><span style="text-align:right">${Y - 1}</span><span style="text-align:right">Τ.μ.</span></div>
+    ${stages.map(s => { const n = ls.filter(l => l.stage === s).length; return `<div><span>${esc(s)}</span><span class="bar"><i style="width:${100 * n / mx}%"></i></span><b style="text-align:right">${n}</b><span class="muted" style="text-align:right">${lp.filter(l => l.stage === s).length}</span><span style="text-align:right">${nf(sum(ls.filter(l => l.stage === s)))}</span></div>`; }).join("")}</div></section>
+
+  <section><h2>Θέλουν επαφή (${late.length})</h2>${late.length ? `<div class="scroll"><table data-sort-id="rl"><thead><tr><th>Εταιρεία</th><th>Χειριστής</th><th>Πορεία</th><th>Τελευταία επαφή</th><th style="text-align:right">Ημέρες</th><th>Τι έγινε τελευταία</th></tr></thead><tbody>
+    ${late.slice(0, 60).map(({ l, days }) => `<tr class="r" style="cursor:default"><td><b>${esc(l.name)}</b></td><td>${esc(l.handler)}</td><td>${esc(l.stage)}</td><td class="nw" data-s="${l.last || ""}">${fmtD(l.last) || "καμία"}</td><td class="num" data-s="${days}">${days === 99999 ? "–" : days}</td><td>${esc(l.lastDesc)}</td></tr>`).join("")}
+    </tbody></table></div>${late.length > 60 ? `<p class="muted" style="font-size:12px">…και ${late.length - 60} ακόμα (δείτε την Παρακολούθηση).</p>` : ""}` : `<p class="muted">Κανένα ανοιχτό lead δεν έχει μείνει ${ui.red}+ ημέρες χωρίς επαφή.</p>`}</section>
+
+  ${newLeads.length ? `<section><h2>Νέα leads περιόδου (${newLeads.length})</h2><div class="scroll"><table data-sort-id="rn"><thead><tr><th>Εταιρεία</th><th>Χρονιά</th><th>Προέλευση</th><th>Χειριστής</th><th>Πορεία</th></tr></thead><tbody>
+    ${newLeads.map(l => `<tr style="cursor:default"><td><b>${esc(l.name)}</b></td><td class="num">${l.year}</td><td>${esc(l.v["Προέλευση"])}</td><td>${esc(l.handler)}</td><td>${esc(l.stage)}</td></tr>`).join("")}</tbody></table></div></section>` : ""}
+
+  <section style="break-inside:auto"><h2>Ενέργειες περιόδου (${acts.length})</h2>${acts.length ? `<div class="scroll"><table data-sort-id="ra"><thead><tr><th>Ημερομηνία</th><th>Εταιρεία</th><th>Τύπος</th><th>Περιγραφή</th><th>Χειριστής</th></tr></thead><tbody>
+    ${acts.slice(0, 300).map(a => `<tr style="cursor:default"><td class="nw" data-s="${a.date}">${fmtD(a.date)}</td><td><b>${esc(a.name)}</b></td><td>${esc(a.type)}</td><td>${esc(a.desc)}</td><td>${esc(a.handler)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">Καμία ενέργεια στην περίοδο.</p>`}</section>
+  </article>`;
+}
+
 // ---- Οδηγίες ----
 function helpHTML() {
   const sec = [["start", "Ξεκίνημα"], ["track", "Παρακολούθηση"], ["lead", "Νέο lead"], ["action", "Ενέργεια"], ["contact", "Επαφές"], ["card", "Καρτέλα εταιρείας"],
-    ["delete", "Διαγραφή"], ["import", "Εισαγωγή"], ["export", "Εξαγωγή"], ["summary", "Σύνοψη"], ["settings", "Ρυθμίσεις"], ["admin", "Διαχειριστής"], ["faq", "Συχνές ερωτήσεις"]];
+    ["delete", "Διαγραφή"], ["import", "Εισαγωγή"], ["export", "Εξαγωγή"], ["summary", "Σύνοψη"], ["report", "Αναφορά PDF"], ["settings", "Ρυθμίσεις"], ["admin", "Διαχειριστής"], ["faq", "Συχνές ερωτήσεις"]];
   return `<article class="help">
   <h1 style="font-size:28px;margin:4px 0 6px">Οδηγίες χρήσης</h1>
   <p class="muted" style="margin:0">Το Leads CRM κρατά τις εταιρείες, τα leads ανά χρονιά, τις ενέργειες και τις επαφές της έκθεσης. Όλα αποθηκεύονται αμέσως στη βάση και τα βλέπει όλη η ομάδα.</p>
@@ -1245,6 +1329,14 @@ function helpHTML() {
     <li><b>Δείκτες</b> της χρονιάς δίπλα στην προηγούμενη: leads, εκθέτες, χορηγοί, ακυρώσεις, τ.μ., ποσοστό μετατροπής (εκθέτες / (εκθέτες + ακυρώσεις)).</li>
     <li><b>Πορεία ενδιαφέροντος</b> και <b>ανά χειριστή</b> (leads, ανοιχτά, εκθέτες, ενέργειες της εβδομάδας).</li>
     <li><b>Ανά προέλευση</b>, με ομαδοποίηση ανά πλήρη προέλευση, τύπο (Παλιός Εκθέτης / Νέο Lead…) ή κανάλι (Προσέγγιση / email…).</li>
+  </ul>
+
+  <h2 id="h-report">Αναφορά (PDF)</h2>
+  <ul>
+    <li>Διαλέξτε <b>περίοδο</b> (τελευταίες 7 ή 30 ημέρες, τρέχων ή προηγούμενος μήνας, ή δικές σας ημερομηνίες), <b>χρονιά leads</b> και, αν θέλετε, <b>χειριστή</b>.</li>
+    <li>Περιέχει: εικόνα της χρονιάς σε σύγκριση με την προηγούμενη, δραστηριότητα της περιόδου ανά χειριστή και τύπο ενέργειας, pipeline, ποια leads θέλουν επαφή, νέα leads και όλες τις ενέργειες της περιόδου.</li>
+    <li><b>«Αποθήκευση PDF / Εκτύπωση»:</b> στο παράθυρο που ανοίγει διαλέξτε <b>Προορισμός → Αποθήκευση ως PDF</b> (ή «Microsoft Print to PDF») και πατήστε Αποθήκευση. Για καλύτερο αποτέλεσμα τσεκάρετε «Γραφικά φόντου» στις περισσότερες ρυθμίσεις.</li>
+    <li>Τα «νέα leads» μετρούν όσα καταχωρήθηκαν μέσα στην περίοδο· όσα ήρθαν με την αρχική μεταφορά από το Excel δεν μετρούν ως νέα.</li>
   </ul>
 
   <h2 id="h-settings">Ρυθμίσεις</h2>
@@ -1344,6 +1436,12 @@ function bindMain(partial) {
   on("aT", "onchange", e => { ui.at = e.target.value; rerender(); });
   on("sY", "onchange", e => { ui.sy = +e.target.value; rerender(); });
   on("srcG", "onchange", e => { ui.srcGroup = e.target.value; rerender(); });
+  on("rP", "onchange", e => { ui.rp = e.target.value; rerender(); });
+  on("rF", "onchange", e => { ui.rfrom = e.target.value; rerender(); });
+  on("rT", "onchange", e => { ui.rto = e.target.value; rerender(); });
+  on("rY", "onchange", e => { ui.ry = +e.target.value; rerender(); });
+  on("rH", "onchange", e => { ui.rh = e.target.value; rerender(); });
+  on("rPrint", "onclick", () => { const old = document.title; const [f, t] = repPeriod(); document.title = `Αναφορά leads ${ui.ry || ui.year} ${fmtD(f).replace(/\//g, "-")} έως ${fmtD(t).replace(/\//g, "-")}`; window.print(); setTimeout(() => document.title = old, 1000); });
   on("normC", "onclick", e => busy(e.target, async () => { const ch = countryFixes(); const n = await Core.setFieldMany("E", ch); return { msg: `Ενοποιήθηκαν ${n} εγγραφές χωρών.` }; }));
   on("sMe", "onchange", e => { ui.me = e.target.value; LS.set("me", ui.me); });
   on("sO", "onchange", e => { ui.orange = Math.max(1, +e.target.value || 7); LS.set("orange", ui.orange); });
@@ -1451,7 +1549,7 @@ function setupCountry(frm) {
 }
 function rerender(focusId) {
   const pos = focusId && $("#" + focusId) ? $("#" + focusId).selectionStart : null;
-  const views = { track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML, help: helpHTML };
+  const views = { track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML, help: helpHTML, report: reportHTML };
   $("#view").innerHTML = views[ui.view](); bindMain(true); applySorts($("#view"));
   if (ui.view === "settings") loadUsage();
   if (focusId) { const el = $("#" + focusId); el.focus(); if (pos !== null) el.setSelectionRange(pos, pos); }
