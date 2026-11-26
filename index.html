@@ -89,6 +89,28 @@ tr.st-skip td{opacity:.55}tr.st-warn td{background:var(--ambbg)}
   th{position:static!important;white-space:normal!important}td.nw,td.md,td.co,td.em,td.ph,td.wide{white-space:normal!important;min-width:0!important}th .si{display:none}a{color:#000;text-decoration:none}.rep table{font-size:9pt;width:100%!important}.rep th{font-size:8pt}.rep td{overflow-wrap:break-word}
   @page{size:A4;margin:12mm}
 }
+.offer-grid{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:18px;align-items:start}@media(max-width:860px){.offer-grid{grid-template-columns:1fr}}
+.otbl td{vertical-align:middle;font-size:13px}.otbl input{min-height:30px;padding:2px 6px}
+.offer-sum{position:sticky;top:0;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg2)}
+.offer-sum div{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:4px 0}.offer-sum b{white-space:nowrap}
+.offer-sum .t{border-top:1px solid var(--line);margin-top:4px;padding-top:8px}.offer-sum .g{border-top:2px solid var(--brand);margin-top:4px;padding-top:8px;font-size:15px}.offer-sum .g b{font-size:20px;color:var(--brand2)}
+#offerPrint{display:none}
+@media print{
+  body.print-offer>*:not(#offerPrint){display:none!important}
+  body.print-offer #offerPrint{display:block!important}
+  .odoc{font:10.5pt/1.35 Inter,Arial,sans-serif;color:#000;max-width:180mm;margin:0 auto}
+  .ologo{display:block;width:62mm;margin:0 auto 4mm}
+  .odoc h1{font-size:13pt;text-align:center;margin:0 0 4mm;letter-spacing:.02em}
+  .odoc table{border-collapse:collapse;width:100%}.odoc th,.odoc td{border:1px solid #000;padding:1.6mm 2mm;font-size:9.5pt;vertical-align:middle;position:static!important;background:none}
+  .ohead th{text-align:right;font-weight:700;border:0;width:30%}.ohead td{text-align:center}
+  .odate{text-align:right;font-weight:700;margin:2mm 0}
+  .olines thead th{background:#d9e8c4!important;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;white-space:normal!important}
+  .olines .n{text-align:right;white-space:nowrap}.olines tr.s td:first-child{text-align:center}
+  .olines .vert{width:8mm;text-align:center;font-weight:700}.olines .vert span{writing-mode:vertical-rl;transform:rotate(180deg)}
+  .olines tr.g td{background:#7cb342!important;color:#fff;font-weight:700;font-size:10.5pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ovalid{margin:2mm 0 5mm}.opay,.obanks{margin-top:4mm;font-size:9.5pt}.opay b,.obanks b{display:block;margin-bottom:1mm}
+  @page{size:A4;margin:12mm}
+}
 .cbx{position:relative}.cbx-list{position:absolute;left:0;right:0;top:100%;z-index:40;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-height:260px;overflow:auto;margin-top:2px}
 .cbx-list div{padding:6px 10px;cursor:pointer;color:var(--ink);font-size:14px}.cbx-list div small{color:var(--mute);margin-left:6px}.cbx-list div[aria-selected=true],.cbx-list div:hover{background:var(--bg2)}
 .chip{border:1px solid var(--line);background:var(--bg2);border-radius:99px;padding:5px 12px;font-size:13px}
@@ -199,7 +221,7 @@ td.wide{min-width:220px}
 <aside class="drawer" id="drawer" aria-label="Καρτέλα εταιρείας"></aside>
 <div class="modal" id="modal" role="dialog" aria-modal="true"><div class="mbox" id="mbox"></div></div>
 <div class="toast" id="toast" role="status"></div>
-<datalist id="dl-co"></datalist>
+<datalist id="dl-co"></datalist><datalist id="dl-hall"></datalist>
 <script>
 // ===== Store: τα δεδομένα στο Supabase, με την ίδια λογική που είχαν τα Office Scripts =====
 const Core = (() => {
@@ -854,7 +876,7 @@ const fmtD = n => { if (!n || typeof n !== "number") return n ? String(n) : ""; 
 const toInputDate = n => { const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 864e5); return d.toISOString().slice(0, 10); };
 const fromInputDate = s => { if (!s) return 0; const [y, m, d] = s.split("-").map(Number); return Math.floor(Date.UTC(y, m - 1, d) / 864e5) + 25569; };
 // προσωπικές ρυθμίσεις: στον browser και (αν υπάρχει ο πίνακας user_prefs) στη βάση, ώστε να ακολουθούν τον χρήστη σε κάθε συσκευή
-const PREF_KEYS = ["cols", "sorts", "year", "handler", "me", "orange", "red"];
+const PREF_KEYS = ["cols", "sorts", "year", "handler", "me", "orange", "red", "offer"];
 const LS = { get(k, d) { try { const v = localStorage.getItem("leadscrm:" + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("leadscrm:" + k, JSON.stringify(v)); } catch (e) {} if (PREF_KEYS.includes(k)) schedulePrefs(); } };
 const prefSync = { uid: "", on: false, t: 0 };
@@ -980,6 +1002,7 @@ function after(res) { refreshDatalist(); render(); if (ui.drawer) openDrawer(ui.
 
 function refreshDatalist() {
   const d = Core.derive();
+  $("#dl-hall").innerHTML = list("Hall").map(h => `<option value="${esc(h)}"></option>`).join("");
   $("#dl-co").innerHTML = [...d.comp.values()].sort((a, b) => a.name.localeCompare(b.name, "el")).map(c => `<option value="${esc(c.code + " · " + c.name)}"></option>`).join("");
 }
 
@@ -996,7 +1019,7 @@ function render() {
   <nav>${views.map(([k, l]) => `<button data-view="${k}" aria-current="${ui.view === k}">${l}</button>`).join("")}</nav>
   <div class="acts">
     <button class="btn pri" data-form="lead">+ Νέο lead</button><button class="btn" data-form="action">+ Ενέργεια / σχόλιο</button>
-    <button class="btn" data-form="contact">+ Επαφή</button><button class="btn" data-form="del">Διαγραφή</button><button class="btn" id="impBtn">Εισαγωγή από Excel</button>
+    <button class="btn" data-form="contact">+ Επαφή</button><button class="btn" data-form="del">Διαγραφή</button><button class="btn" id="offerBtn">Οικονομική προσφορά</button><button class="btn" id="impBtn">Εισαγωγή από Excel</button>
   </div>
   <main id="view">${({ track: trackHTML, companies: companiesHTML, history: historyHTML, summary: summaryHTML, settings: settingsHTML, help: helpHTML, report: reportHTML })[ui.view]()}</main>`;
   bindMain(); applySorts($("#view"));
@@ -1258,7 +1281,7 @@ function reportHTML() {
 // ---- Οδηγίες ----
 function helpHTML() {
   const sec = [["start", "Ξεκίνημα"], ["track", "Παρακολούθηση"], ["lead", "Νέο lead"], ["action", "Ενέργεια"], ["contact", "Επαφές"], ["card", "Καρτέλα εταιρείας"],
-    ["delete", "Διαγραφή"], ["import", "Εισαγωγή"], ["export", "Εξαγωγή"], ["summary", "Σύνοψη"], ["report", "Αναφορά PDF"], ["settings", "Ρυθμίσεις"], ["admin", "Διαχειριστής"], ["faq", "Συχνές ερωτήσεις"]];
+    ["delete", "Διαγραφή"], ["import", "Εισαγωγή"], ["export", "Εξαγωγή"], ["summary", "Σύνοψη"], ["offer", "Προσφορά"], ["report", "Αναφορά PDF"], ["settings", "Ρυθμίσεις"], ["admin", "Διαχειριστής"], ["faq", "Συχνές ερωτήσεις"]];
   return `<article class="help">
   <h1 style="font-size:28px;margin:4px 0 6px">Οδηγίες χρήσης</h1>
   <p class="muted" style="margin:0">Το Leads CRM κρατά τις εταιρείες, τα leads ανά χρονιά, τις ενέργειες και τις επαφές της έκθεσης. Όλα αποθηκεύονται αμέσως στη βάση και τα βλέπει όλη η ομάδα.</p>
@@ -1351,6 +1374,15 @@ function helpHTML() {
     <li><b>Ανά προέλευση</b>, με ομαδοποίηση ανά πλήρη προέλευση, τύπο (Παλιός Εκθέτης / Νέο Lead…) ή κανάλι (Προσέγγιση / email…).</li>
   </ul>
 
+  <h2 id="h-offer">Οικονομική προσφορά</h2>
+  <ul>
+    <li>Από το κουμπί <b>«Οικονομική προσφορά»</b> (κενή) ή από την καρτέλα εταιρείας → lead → <b>«Προσφορά»</b> (συμπληρώνονται εταιρεία, Hall, Stand και τ.μ.).</li>
+    <li>Διαλέξτε <b>Ελληνικά / English</b>, γράψτε τ.μ. ανά τύπο χώρου, mini booth, υπαίθριο, κατασκευή τύπου 2, open stage. Οι τιμές ανά μονάδα αλλάζουν αν χρειαστεί.</li>
+    <li><b>Έκπτωση %</b> στον χώρο (με το χέρι) και, αν θέλετε, <b>επιπλέον (συνδυαστική) έκπτωση</b> πάνω στο υπόλοιπο. Η ετικέτα της έκπτωσης αλλάζει (π.χ. «ΕΚΠΤΩΣΗ (ΛΟΓΩ ΜΕΤΡΩΝ)»).</li>
+    <li>Το σύνολο, ο ΦΠΑ και το τελικό ποσό φαίνονται δεξιά καθώς γράφετε. <b>«PDF / Εκτύπωση»</b> → Αποθήκευση ως PDF.</li>
+    <li>Οι τιμές, ο ΦΠΑ, το τέλος εγγραφής και το κείμενο πληρωμής που αλλάζετε θυμούνται για τις επόμενες προσφορές σας.</li>
+  </ul>
+
   <h2 id="h-report">Αναφορά (PDF)</h2>
   <ul>
     <li>Διαλέξτε <b>περίοδο</b> (τελευταίες 7 ή 30 ημέρες, τρέχων ή προηγούμενος μήνας, ή δικές σας ημερομηνίες), <b>χρονιά leads</b> και, αν θέλετε, <b>χειριστή</b>.</li>
@@ -1432,6 +1464,7 @@ function bindMain(partial) {
     if (ui.view === "settings") loadUsage();
     document.querySelectorAll(".acts [data-form]").forEach(b => b.onclick = () => openForm(b.dataset.form, {}));
     $("#impBtn").onclick = openImport;
+    $("#offerBtn").onclick = () => openOffer({});
   }
   V.onclick = e => {
     const q = e.target.closest("[data-quick]"); if (q) { e.stopPropagation(); return openForm("action", { company: codeLabel(+q.dataset.quick), year: q.dataset.year }); }
@@ -1627,7 +1660,7 @@ function openDrawer(code) {
       <div><span>Σύνδεσμος αρχείων</span>${/^https:\/\//.test(String(c.v["Σύνδεσμος αρχείων"])) ? `<a href="${esc(c.v["Σύνδεσμος αρχείων"])}" target="_blank" rel="noopener">άνοιγμα</a>` : esc(c.v["Σύνδεσμος αρχείων"]) || "—"}</div></div></div>
     <div class="sec"><h3>Επαφές (${c.contacts.length})</h3>${c.contacts.map(p => `<div class="card"><div class="hd"><b>${esc(p.v["Ονοματεπώνυμο"])}${p.v["Κύρια επαφή"] === "Ναι" ? ' <span class="chip" style="padding:1px 8px">κύρια</span>' : ""}</b><span><button class="btn sm" data-edit="P" data-i="${p.i}">Επεξεργασία</button> <button class="btn sm" data-rm="P" data-i="${p.i}">Αφαίρεση</button></span></div>
       <div class="grid">${["Θέση", "Τηλέφωνο", "Email", "Σημειώσεις"].filter(h => String(p.v[h] ?? "").trim()).map(h => `<div><span>${h}</span>${esc(p.v[h])}</div>`).join("")}</div></div>`).join("") || '<p class="muted">Καμία επαφή.</p>'}</div>
-    <div class="sec"><h3>Leads</h3>${leads.map(l => `<div class="card"><div class="hd"><b style="font-size:17px">${l.year}</b><span class="st"><i class="dot ${l.open ? "g" : "k"}"></i>${esc(l.stage || "—")}</span><span><button class="btn sm" data-f="action" data-year="${l.year}">+ Ενέργεια</button> <button class="btn sm" data-edit="L" data-i="${l.i}">Επεξεργασία</button></span></div>
+    <div class="sec"><h3>Leads</h3>${leads.map(l => `<div class="card"><div class="hd"><b style="font-size:17px">${l.year}</b><span class="st"><i class="dot ${l.open ? "g" : "k"}"></i>${esc(l.stage || "—")}</span><span><button class="btn sm" data-f="action" data-year="${l.year}">+ Ενέργεια</button> <button class="btn sm" data-offer="${l.i}">Προσφορά</button> <button class="btn sm" data-edit="L" data-i="${l.i}">Επεξεργασία</button></span></div>
       <div class="grid"><div><span>Χειριστής</span>${esc(l.handler) || "—"}</div><div><span>Χορηγία</span>${esc(l.sponsor) || "—"}</div><div><span>Προέλευση</span>${lf(l, "Προέλευση") || "—"}</div>
       <div><span>Hall / Stand</span>${lf(l, "Hall") || "—"}${l.v["Αριθμός Stand"] ? " · " + lf(l, "Αριθμός Stand") : ""}</div><div><span>Τ.μ.</span>${lf(l, "Τ.μ.") || "—"}</div><div><span>Τελευταία επαφή</span>${fmtD(l.last) || "καμία"}</div>
       <div><span>Εκθέτης προηγ. χρονιάς</span>${l.prevExhibitor}</div>${l.v["Λόγος ακύρωσης"] ? `<div><span>Λόγος ακύρωσης</span>${lf(l, "Λόγος ακύρωσης")}</div>` : ""}
@@ -1640,6 +1673,7 @@ function openDrawer(code) {
     if (e.target.id === "dClose") return closeDrawer();
     const f = e.target.closest("[data-f]"); if (f) return openForm(f.dataset.f, { company: lbl, year: f.dataset.year || "" });
     const ed = e.target.closest("[data-edit]"); if (ed) return openForm("edit" + ed.dataset.edit, { i: +ed.dataset.i, company: lbl });
+    const of = e.target.closest("[data-offer]"); if (of) { const l = c.leads.find(x => x.i === +of.dataset.offer); return openOffer({ company: c.name, hall: l.v["Hall"], stand: l.v["Αριθμός Stand"], sqm: l.v["Τ.μ."] }); }
     const rm = e.target.closest("[data-rm]"); if (rm) return askRemove(rm.dataset.rm, +rm.dataset.i, rm);
   };
 }
@@ -1797,6 +1831,151 @@ function delInfo(v) {
   return `<div class="info" style="background:var(--redbg)"><b>Θα διαγραφούν:</b> εταιρεία: ${v.year ? "όχι (μένει)" : "ΝΑΙ – ολόκληρη"} · leads: ${p.leads} · ενέργειες: ${p.actions} · επαφές: ${p.contacts}</div>`;
 }
 $("#modal").addEventListener("mousedown", e => { if (e.target.id === "modal") closeForm(); });
+// ---------- Οικονομική προσφορά (από το Excel «Οικονομική προσφορά FG/RET 26») ----------
+const OFFER_TXT = {
+  el: { title: "ΟΙΚΟΝΟΜΙΚΗ ΠΡΟΣΦΟΡΑ", company: "ΕΠΩΝΥΜΙΑ ΕΤΑΙΡΕΙΑΣ", space: "ΧΩΡΟΣ", stand: "STAND", desc: "Περιγραφή χώρου", ppm: "€/m²", m2: "m²", fee: "Αμοιβή Συμμετοχής",
+    indoor: "ΣΤΕΓΑΣΜΕΝΟΣ", s1: "Ίχνος εδάφους μιας όψης", s2: "Ίχνος εδάφους δύο όψεων", s3: "Ίχνος εδάφους τριών όψεων", s4: "Ίχνος εδάφους τεσσάρων όψεων",
+    mini: "Mini booth 6 τμ με τυποποιημένη κατασκευή", outdoor: "Υπαίθριος Χώρος", disc: "ΕΚΠΤΩΣΗ", rest: "ΥΠΟΛΟΙΠΟ (ΜΕΙΟΝ ΕΚΠΤΩΣΗ)", disc2: "ΕΠΙΠΛΕΟΝ ΕΚΠΤΩΣΗ", rest2: "ΥΠΟΛΟΙΠΟ (ΜΕΙΟΝ ΕΠΙΠΛΕΟΝ ΕΚΠΤΩΣΗ)",
+    booth: "ΤΥΠΟΠΟΙΗΜΕΝΗ ΚΑΤΑΣΚΕΥΗ ΑΠΟ HELEXPO ΤΥΠΟΥ 2", stage: "Μισάωρη εκδήλωση στο open stage", reg: "ΤΕΛΟΣ ΕΓΓΡΑΦΗΣ ΕΚΘΕΤΗ", total: "ΣΥΝΟΛΟ ΔΑΠΑΝΗΣ", vat: "Φ.Π.Α.", grand: "ΣΥΝΟΛΟ ΑΜΟΙΒΗΣ ΣΥΜΜΕΤΟΧΗΣ",
+    valid: d => `Η δέσμευση του συγκεκριμένου χώρου ισχύει για ${d} ημέρες από την αποστολή του παρόντος.`, payTitle: "ΤΡΟΠΟΣ ΠΛΗΡΩΜΗΣ", banks: "ΤΡΑΠΕΖΙΚΟΙ ΛΟΓΑΡΙΑΣΜΟΙ",
+    pay: "Με την οριστικοποίηση της Δήλωσης Συμμετοχής θα πρέπει να κατατεθεί το 50% του συνολικού ποσού του τιμολογίου και η εξόφληση να πραγματοποιηθεί κατά το προπαρασκευαστικό στάδιο της έκθεσης, έως 01/03/2027.\n\nΣε περίπτωση που επιθυμείτε εξόφληση εκδίδοντας επιταγές θα πρέπει με την οριστικοποίηση της Δήλωσης Συμμετοχής να κατατεθούν δύο επιταγές.\n• Η πρώτη να καλύπτει το 50% του συνολικού ποσού με λήξη 01/03/2027\n• Η δεύτερη να καλύπτει το 50% με λήξη 09/05/2027" },
+  en: { title: "FINANCIAL OFFER", company: "COMPANY NAME", space: "PAVILION", stand: "STAND", desc: "Space Description", ppm: "€/m²", m2: "m²", fee: "Participation Fee",
+    indoor: "INDOOR", s1: "Raw space, one side", s2: "Raw space, two sides", s3: "Raw space, three sides", s4: "Raw space, four sides",
+    mini: "Mini booth 6 m² with preconstructed booth", outdoor: "Outdoor Space", disc: "DISCOUNT", rest: "AMOUNT (MINUS THE DISCOUNT)", disc2: "ADDITIONAL DISCOUNT", rest2: "AMOUNT (MINUS THE ADDITIONAL DISCOUNT)",
+    booth: "PRECONSTRUCTED BOOTH / TYPE 2 (BY HELEXPO)", stage: "Half-hour event on the open stage", reg: "REGISTRATION FEE", total: "TOTAL PARTICIPATION FEE", vat: "VAT", grand: "TOTAL PARTICIPATION FEE (INCL. VAT)",
+    valid: d => `The reservation of the selected exhibition space is valid for ${d} days after the offer is sent.`, payTitle: "PAYMENT METHODS", banks: "BANK ACCOUNTS",
+    pay: "Once the Participation Form has been finalized, full payment of the total amount is due immediately." }
+};
+const OFFER_BANKS = "Εθνική Τράπεζα Ελλάδος – IBAN GR 4011022300000 22347030060\nΤράπεζα Πειραιώς – IBAN GR 160172202000 5202002162792\nALPHA BANK – IBAN GR 7401407070 707002320000394\nEUROBANK – IBAN GR 5702600300000960200688210";
+// γραμμές χώρου: [κλειδί, προεπιλεγμένη τιμή, μονάδα]
+const OFFER_LINES = [["s1", 130, "m²"], ["s2", 140, "m²"], ["s3", 150, "m²"], ["s4", 160, "m²"], ["mini", 990, "τεμ."], ["outdoor", 60, "m²"]];
+const OFFER_DEF = { lang: "el", valid: 10, p: { s1: 130, s2: 140, s3: 150, s4: 160, mini: 990, outdoor: 60, booth: 35, stage: 500 }, reg: 110, vat: 24, banks: true };
+const eur = n => (Math.round(n * 100) / 100).toLocaleString("el-GR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+function offerCalc(o) {
+  const q = k => Math.max(0, Number(o.q[k]) || 0), p = k => Number(o.p[k]) || 0;
+  const line = k => q(k) * p(k);
+  const discBase = ["s1", "s2", "s3", "s4", "outdoor"].reduce((a, k) => a + line(k), 0);   // όπως στο Excel: η έκπτωση στον χώρο
+  const disc = discBase * (Number(o.disc) || 0) / 100, rest = discBase - disc;
+  const disc2 = o.use2 ? rest * (Number(o.disc2) || 0) / 100 : 0, rest2 = rest - disc2;
+  const mini = line("mini"), booth = line("booth"), stage = line("stage"), reg = o.useReg ? Number(o.reg) || 0 : 0;
+  const sum = rest2 + mini + booth + stage + reg;
+  const total = sum > 100 ? sum : 0;                                                // όπως το IF(SUM(...)>100;...;0) του Excel
+  const vat = total * (Number(o.vat) || 0) / 100;
+  return { discBase, disc, rest, disc2, rest2, mini, booth, stage, reg, total, vat, grand: total + vat };
+}
+function offerDefaults(pre) {
+  const saved = LS.get("offer", {}) || {};
+  const o = { ...OFFER_DEF, ...saved, p: { ...OFFER_DEF.p, ...(saved.p || {}) } };
+  o.q = { s1: pre.sqm || "", s2: "", s3: "", s4: "", mini: "", outdoor: "", booth: "", stage: "" };
+  o.company = pre.company || ""; o.hall = pre.hall || ""; o.standNo = pre.stand || "";
+  o.disc = ""; o.use2 = false; o.disc2 = ""; o.useReg = true; o.date = Core.today();
+  o.discLabel = ""; o.pay = saved["pay_" + o.lang] || OFFER_TXT[o.lang].pay;
+  return o;
+}
+let offer = null;
+function openOffer(pre) {
+  offer = offerDefaults(pre || {}); cur = { kind: "offer", fd: {}, pre: {} };
+  $("#mbox").classList.add("wide"); $("#modal").classList.add("on"); drawOffer();
+}
+function drawOffer() {
+  const o = offer, T = OFFER_TXT[o.lang], c = offerCalc(o);
+  const num = (k, v, w) => `<input type="number" step="any" min="0" data-o="${k}" value="${esc(v)}" style="width:${w || 90}px;text-align:right">`;
+  const row = (k, unit) => `<tr><td>${esc(T[k] || k)}</td><td>${num("p." + k, o.p[k], 90)}</td><td>${num("q." + k, o.q[k], 80)} <span class="muted">${unit}</span></td><td class="num" id="ol-${k}">${eur((Number(o.q[k]) || 0) * (Number(o.p[k]) || 0))}</td></tr>`;
+  $("#mbox").innerHTML = `<div class="mh"><h2>Οικονομική προσφορά</h2><button class="x-close" id="mClose" aria-label="Κλείσιμο">×</button></div>
+  <div class="mb"><div class="offer-grid">
+   <div>
+    <div class="fg">
+      <label>Γλώσσα<select data-o="lang"><option value="el"${o.lang === "el" ? " selected" : ""}>Ελληνικά</option><option value="en"${o.lang === "en" ? " selected" : ""}>English</option></select></label>
+      <label>Ισχύς προσφοράς (ημέρες)${num("valid", o.valid, 80)}</label>
+      <label class="full">Εταιρεία<input data-o="company" list="dl-co" value="${esc(o.company)}"></label>
+      <label>${o.lang === "en" ? "Pavilion" : "Χώρος"} (Hall)<input data-o="hall" value="${esc(o.hall)}" list="dl-hall"></label>
+      <label>Stand<input data-o="standNo" value="${esc(o.standNo)}"></label>
+    </div>
+    <div class="scroll" style="margin-top:10px"><table class="otbl"><thead><tr><th>Περιγραφή</th><th>€ / μονάδα</th><th>Ποσότητα</th><th style="text-align:right">Ποσό</th></tr></thead><tbody>
+      ${OFFER_LINES.map(([k, , u]) => row(k, u)).join("")}
+      <tr><td>Έκπτωση στον χώρο <input data-o="discLabel" placeholder="${esc(T.disc)}" value="${esc(o.discLabel)}" style="width:170px"></td><td></td><td>${num("disc", o.disc, 80)} <span class="muted">%</span></td><td class="num" id="ol-disc">${c.disc ? "−" + eur(c.disc) : "–"}</td></tr>
+      <tr><td colspan="3"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-o="use2"${o.use2 ? " checked" : ""} style="width:16px;height:16px;min-height:0">Επιπλέον έκπτωση (συνδυαστική)</label></td><td>${o.use2 ? num("disc2", o.disc2, 80) + ' <span class="muted">%</span>' : ""}</td></tr>
+      ${row("booth", "m²")}${row("stage", "τεμ.")}
+      <tr><td><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-o="useReg"${o.useReg ? " checked" : ""} style="width:16px;height:16px;min-height:0">${esc(T.reg)}</label></td><td>${num("reg", o.reg, 90)}</td><td></td><td class="num">${o.useReg ? eur(Number(o.reg) || 0) : "–"}</td></tr>
+      <tr><td>Φ.Π.Α.</td><td></td><td>${num("vat", o.vat, 80)} <span class="muted">%</span></td><td class="num" id="ol-vat">${eur(c.vat)}</td></tr>
+    </tbody></table></div>
+    <div class="fg" style="margin-top:10px"><label class="full">Τρόπος πληρωμής (κείμενο στο PDF)<textarea data-o="pay" rows="5">${esc(o.pay)}</textarea></label>
+      <label class="full" style="flex-direction:row;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" data-o="banks"${o.banks ? " checked" : ""} style="width:16px;height:16px;min-height:0">Τραπεζικοί λογαριασμοί στο PDF</label></div>
+   </div>
+   <aside class="offer-sum">
+     <div><span>Χώρος (μετά τις εκπτώσεις)</span><b id="os-rest">${eur(c.rest2)}</b></div>
+     <div><span>Mini booth / κατασκευή / open stage</span><b id="os-extra">${eur(c.mini + c.booth + c.stage)}</b></div>
+     <div><span>Τέλος εγγραφής</span><b>${eur(c.reg)}</b></div>
+     <div class="t"><span>${esc(OFFER_TXT.el.total)}</span><b id="os-total">${eur(c.total)}</b></div>
+     <div><span>Φ.Π.Α. ${esc(o.vat)}%</span><b id="os-vat">${eur(c.vat)}</b></div>
+     <div class="g"><span>ΣΥΝΟΛΟ με ΦΠΑ</span><b id="os-grand">${eur(c.grand)}</b></div>
+   </aside>
+  </div></div>
+  <div class="mf"><span class="msg muted" style="font-size:12.5px">Τιμές, ΦΠΑ, τέλος εγγραφής και κείμενο πληρωμής θυμούνται για την επόμενη προσφορά.</span><button class="btn" id="mCancel">Κλείσιμο</button><button class="btn pri" id="offPdf">PDF / Εκτύπωση</button></div>`;
+  const mb = $("#mbox");
+  mb.oninput = e => {
+    const k = e.target.dataset.o; if (!k) return;
+    const v = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    if (k.startsWith("p.")) o.p[k.slice(2)] = v; else if (k.startsWith("q.")) o.q[k.slice(2)] = v; else o[k] = v;
+    if (k === "lang") { o.pay = (LS.get("offer", {}) || {})["pay_" + v] || OFFER_TXT[v].pay; drawOffer(); return; }
+    if (k === "use2" || k === "useReg") { drawOffer(); return; }
+    const c2 = offerCalc(o);
+    for (const [kk] of [...OFFER_LINES, ["booth"], ["stage"]]) { const el = $("#ol-" + kk); if (el) el.textContent = eur((Number(o.q[kk]) || 0) * (Number(o.p[kk]) || 0)); }
+    $("#ol-disc").textContent = c2.disc ? "−" + eur(c2.disc) : "–"; $("#ol-vat").textContent = eur(c2.vat);
+    $("#os-rest").textContent = eur(c2.rest2); $("#os-extra").textContent = eur(c2.mini + c2.booth + c2.stage);
+    $("#os-total").textContent = eur(c2.total); $("#os-vat").textContent = eur(c2.vat); $("#os-grand").textContent = eur(c2.grand);
+  };
+  mb.onchange = mb.oninput;
+  $("#mClose").onclick = closeForm; $("#mCancel").onclick = closeForm;
+  $("#offPdf").onclick = printOffer;
+}
+function offerDocHTML(o) {
+  const T = OFFER_TXT[o.lang], c = offerCalc(o), q = k => Number(o.q[k]) || 0, d = fmtD(o.date);
+  const name = Core.findCompany(o.company) ? Core.findCompany(o.company).v["Εταιρεία"] : String(o.company).replace(/^\s*\d+\s*·\s*/, "");
+  const ln = (label, k, cls) => `<tr class="${cls || ""}"><td colspan="2">${esc(label)}</td><td class="n">${eur(Number(o.p[k]) || 0)}</td><td class="n">${q(k) || ""}</td><td class="n">${q(k) ? eur(q(k) * (Number(o.p[k]) || 0)) : "–"}</td></tr>`;
+  const sum = (label, v, cls) => `<tr class="${cls || "s"}"><td colspan="4">${esc(label)}</td><td class="n">${v}</td></tr>`;
+  return `<div class="odoc">
+    <img class="ologo" src="img/logo-offer.jpg" alt="ENERGY HELEXPO">
+    <h1>${esc(T.title)}</h1>
+    <table class="ohead"><tr><th>${esc(T.company)}</th><td colspan="3"><b>${esc(name)}</b></td></tr>
+      <tr><th>${esc(T.space)}</th><td>${esc(o.hall)}</td><th>${esc(T.stand)}</th><td>${esc(o.standNo)}</td></tr></table>
+    <p class="odate">${d}</p>
+    <table class="olines"><thead><tr><th colspan="2">${esc(T.desc)}</th><th>${esc(T.ppm)}</th><th>${esc(T.m2)}</th><th>${esc(T.fee)}</th></tr></thead><tbody>
+      ${["s1", "s2", "s3", "s4"].map((k, i) => `<tr>${i === 0 ? `<td class="vert" rowspan="4"><span>${esc(T.indoor)}</span></td>` : ""}<td>${esc(T[k])}</td><td class="n">${eur(Number(o.p[k]) || 0)}</td><td class="n">${q(k) || ""}</td><td class="n">${q(k) ? eur(q(k) * (Number(o.p[k]) || 0)) : "–"}</td></tr>`).join("")}
+      ${q("mini") ? ln(T.mini, "mini") : ""}
+      ${ln(T.outdoor, "outdoor")}
+      ${sum(o.discLabel || T.disc, c.disc ? eur(c.disc) + (o.disc ? ` (${o.disc}%)` : "") : "–")}
+      ${sum(T.rest, eur(c.rest))}
+      ${o.use2 ? sum(T.disc2, c.disc2 ? eur(c.disc2) + ` (${o.disc2}%)` : "–") + sum(T.rest2, eur(c.rest2)) : ""}
+      ${ln(T.booth, "booth")}
+      ${q("stage") ? ln(T.stage, "stage") : ""}
+      ${o.useReg ? sum(T.reg, eur(c.reg)) : ""}
+      ${sum(T.total, eur(c.total))}
+      ${sum(`${T.vat} ${o.vat}%`, eur(c.vat))}
+      ${sum(T.grand, eur(c.grand), "g")}
+    </tbody></table>
+    <p class="ovalid">${esc(T.valid(o.valid))}</p>
+    <div class="opay"><b>${esc(T.payTitle)}</b><div>${esc(o.pay).replace(/\n/g, "<br>")}</div></div>
+    ${o.banks ? `<div class="obanks"><b>${esc(T.banks)}</b><div>${esc(OFFER_BANKS).replace(/\n/g, "<br>")}</div></div>` : ""}
+  </div>`;
+}
+function printOffer() {
+  const o = offer;
+  const keep = { p: o.p, reg: o.reg, vat: o.vat, valid: o.valid, banks: o.banks, lang: o.lang }; keep["pay_" + o.lang] = o.pay;
+  LS.set("offer", { ...(LS.get("offer", {}) || {}), ...keep });
+  let box = $("#offerPrint"); if (!box) { box = document.createElement("div"); box.id = "offerPrint"; document.body.appendChild(box); }
+  box.innerHTML = offerDocHTML(o);
+  const name = (Core.findCompany(o.company) || { v: { "Εταιρεία": o.company } }).v["Εταιρεία"];
+  const old = document.title; document.title = `${o.lang === "en" ? "Financial offer" : "Οικονομική προσφορά"} ${name} ${fmtD(o.date).replace(/\//g, "-")}`;
+  document.body.classList.add("print-offer");
+  const done = () => { document.body.classList.remove("print-offer"); document.title = old; window.removeEventListener("afterprint", done); };
+  window.addEventListener("afterprint", done);
+  const img = box.querySelector("img");
+  const go = () => { window.print(); setTimeout(done, 1500); };
+  if (img && !img.complete) { img.onload = go; img.onerror = go; } else go();
+}
+
+
 // ---------- εισαγωγή από Excel / CSV ----------
 const IMP_FIELDS = [
   ["company", "Εταιρεία *", ["εταιρεια", "επωνυμια", "company", "organisation", "organization", "εκθετης", "exhibitor", "brand"]],
