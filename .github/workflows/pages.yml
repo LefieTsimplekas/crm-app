@@ -1,0 +1,61 @@
+# Χτίζει και δημοσιεύει την εφαρμογή στο GitHub Pages:
+#   /crm-app/       → η τωρινή έκδοση (index.html στη ρίζα του repo)
+#   /crm-app/next/  → η νέα έκδοση React (φάκελος web/)
+name: Δημοσίευση στο GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Έλεγχοι (τύποι, κανόνες κώδικα, μορφοποίηση, tests)
+        run: |
+          npm run typecheck
+          npm run lint
+          npm run format:check
+          npm test
+      - run: npm run build
+      - name: Συναρμολόγηση σελίδας
+        working-directory: .
+        run: |
+          mkdir -p _site/next
+          cp index.html manifest.webmanifest sw.js _site/
+          cp -r icons img _site/
+          cp -r web/dist/. _site/next/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

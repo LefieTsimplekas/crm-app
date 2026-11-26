@@ -1,0 +1,60 @@
+.scroll {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+}
+.table {
+  vertical-align: top;
+}
+.th {
+  position: relative;
+  padding-right: 14px;
+  white-space: nowrap;
+  background: var(--mantine-color-body);
+}
+.sortBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  text-align: left;
+}
+.sortIdle {
+  opacity: 0.35;
+}
+.label {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+}
+.resize {
+  all: unset;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+.resize::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: 22%;
+  height: 56%;
+  width: 1px;
+  background: var(--mantine-color-default-border);
+}
+.resize:hover::after,
+.resize:focus-visible::after {
+  width: 3px;
+  background: var(--mantine-primary-color-filled);
+}
+.resize:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: -2px;
+}
+@media print {
+  .resize {
+    display: none;
+  }
+}

@@ -889,7 +889,11 @@ const LS = { get(k, d) { try { const v = localStorage.getItem("leadscrm:" + k); 
 const prefSync = { uid: "", on: false, t: 0 };
 function collectPrefs() { const o = {}; for (const k of PREF_KEYS) { const v = LS.get(k, undefined); if (v !== undefined) o[k] = v; } return o; }
 function schedulePrefs() { if (!prefSync.on) return; clearTimeout(prefSync.t); prefSync.t = setTimeout(savePrefsNow, 1500); }
-async function savePrefsNow() { clearTimeout(prefSync.t); if (prefSync.on) await Core.savePrefs(prefSync.uid, collectPrefs()).catch(() => {}); }
+async function savePrefsNow() {   // διαβάζει πρώτα την εγγραφή, ώστε να μη σβήνει ρυθμίσεις της νέας έκδοσης (κλειδί «v2»)
+  clearTimeout(prefSync.t); if (!prefSync.on) return;
+  const r = await Core.getPrefs(prefSync.uid).catch(() => ({})); const base = (r && r.prefs) || {};
+  await Core.savePrefs(prefSync.uid, { ...base, ...collectPrefs() }).catch(() => {});
+}
 async function syncPrefs(uid) {
   prefSync.uid = uid; prefSync.on = false;
   const r = await Core.getPrefs(uid).catch(e => ({ error: e }));
