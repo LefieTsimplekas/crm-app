@@ -111,6 +111,8 @@ tr.st-skip td{opacity:.55}tr.st-warn td{background:var(--ambbg)}
   .ovalid{margin:2mm 0 5mm}.opay,.obanks{margin-top:4mm;font-size:9.5pt}.opay b,.obanks b{display:block;margin-bottom:1mm}
   @page{size:A4;margin:12mm}
 }
+.cp{cursor:copy;border-bottom:1px dashed var(--mute)}.cp:hover{color:var(--brand2);border-bottom-color:var(--brand2)}
+.cpb{border:1px solid var(--line);background:var(--card);border-radius:6px;font-size:11.5px;padding:1px 6px;margin-left:6px;cursor:pointer;vertical-align:middle}
 .cbx{position:relative}.cbx-list{position:absolute;left:0;right:0;top:100%;z-index:40;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-height:260px;overflow:auto;margin-top:2px}
 .cbx-list div{padding:6px 10px;cursor:pointer;color:var(--ink);font-size:14px}.cbx-list div small{color:var(--mute);margin-left:6px}.cbx-list div[aria-selected=true],.cbx-list div:hover{background:var(--bg2)}
 .chip{border:1px solid var(--line);background:var(--bg2);border-radius:99px;padding:5px 12px;font-size:13px}
@@ -1075,7 +1077,7 @@ function trackHTML() {
     <label>Χειριστής<select id="fHandler">${opt(handlers, ui.handler)}</select></label>
     <label>Εμφάνιση<select id="fShow"><option value="open"${ui.show === "open" ? " selected" : ""}>Μόνο ανοιχτά</option><option value="all"${ui.show === "all" ? " selected" : ""}>Όλα</option></select></label>
     <label style="flex:1;min-width:200px">Αναζήτηση<input id="fQ" type="search" value="${esc(ui.q)}" placeholder="εταιρεία, επαφή, τηλέφωνο, σημείωση…"></label>
-    <button class="btn" id="colBtn">Στήλες</button></div>
+    <button class="btn" id="colBtn">Στήλες</button><button class="btn" id="cpAll" title="Αντιγράφει τα email όλων των γραμμών που φαίνονται">Αντιγραφή email</button></div>
   <div class="kpis">
     <div class="kpi r"><b>${k.r}</b><span>Πάνω από ${ui.red} ημ. χωρίς επαφή</span></div>
     <div class="kpi r"><b>${k.n}</b><span>Καμία επαφή ακόμα</span></div>
@@ -1091,7 +1093,7 @@ function cellHTML(c, l) {
   const v = ALLCOLS[c](l);
   if (c === "Κατάσταση") return `<td data-s="${l.open ? l._days : 1e9}"><span class="st"><i class="dot ${l._cls}"></i>${esc(v)}</span></td>`;
   if (c === "Εταιρεία") return `<td class="co"><b>${esc(v)}</b></td>`;
-  if (c === "Email") return `<td class="em">${esc(v)}</td>`;
+  if (c === "Email") return `<td class="em">${emailsHTML(v)}</td>`;
   if (["Hall", "Αριθμός Stand"].includes(c)) return `<td class="nw">${esc(v)}</td>`;
   if (["Χειριστής", "Πορεία", "Χορηγία", "Επαφή", "Προέλευση", "Κλάδος", "Λόγος ακύρωσης"].includes(c)) return `<td class="md">${esc(v)}</td>`;
   if (c === "Τι έγινε τελευταία" || c === "Σημειώσεις") return `<td class="wide">${esc(v)}</td>`;
@@ -1130,9 +1132,9 @@ function colPopover(anchor) {
 function companiesHTML() {
   const q = Core.norm(ui.cq);
   const cs = [...Core.derive().comp.values()].filter(c => !q || Core.norm([c.code, c.name, c.person, c.phone, c.email, c.v["Κλάδος"], countryLabel(c.v["Χώρα"])].join(" ")).includes(q)).sort((a, b) => a.name.localeCompare(b.name, "el"));
-  return `<div class="filters"><label style="flex:1;min-width:220px">Αναζήτηση εταιρείας<input id="cQ" type="search" value="${esc(ui.cq)}" placeholder="όνομα, κωδικός, επαφή, κλάδος…"></label><span class="muted">${cs.length} εταιρείες</span></div>
+  return `<div class="filters"><label style="flex:1;min-width:220px">Αναζήτηση εταιρείας<input id="cQ" type="search" value="${esc(ui.cq)}" placeholder="όνομα, κωδικός, επαφή, κλάδος…"></label><span class="muted">${cs.length} εταιρείες</span><button class="btn" id="cpAll" title="Αντιγράφει τα email όλων των γραμμών που φαίνονται">Αντιγραφή email</button></div>
   <div class="scroll"><table class="stack" data-sort-id="cos"><thead><tr><th>Κωδ.</th><th>Εταιρεία</th><th>Κλάδος</th><th>Χώρα</th><th>Επαφή</th><th>Τηλέφωνο</th><th>Email</th><th>Χρονιές lead</th><th>Τελευταία χρονιά</th></tr></thead><tbody>
-  ${cs.map(c => `<tr data-code="${c.code}"><td class="num">${c.code}</td><td><b>${esc(c.name)}</b></td><td>${esc(c.v["Κλάδος"])}</td><td>${esc(countryLabel(c.v["Χώρα"]))}</td><td>${esc(c.person)}</td><td class="nw">${esc(c.phone)}</td><td>${esc(c.email)}</td><td class="num">${c.leads.length}</td><td class="num">${c.leads.length ? Math.max(...c.leads.map(l => l.year)) : ""}</td></tr>`).join("")}
+  ${cs.map(c => `<tr data-code="${c.code}"><td class="num">${c.code}</td><td><b>${esc(c.name)}</b></td><td>${esc(c.v["Κλάδος"])}</td><td>${esc(countryLabel(c.v["Χώρα"]))}</td><td>${esc(c.person)}</td><td class="nw">${esc(c.phone)}</td><td class="em">${emailsHTML(c.email)}</td><td class="num">${c.leads.length}</td><td class="num">${c.leads.length ? Math.max(...c.leads.map(l => l.year)) : ""}</td></tr>`).join("")}
   </tbody></table></div>`;
 }
 
@@ -1308,6 +1310,7 @@ function helpHTML() {
     <li><b>«+ Ενέργεια»</b> στην αρχή κάθε γραμμής: καταγράφετε γρήγορα τι έγινε με αυτό το lead.</li>
     <li><b>Κλικ σε γραμμή:</b> ανοίγει η καρτέλα της εταιρείας.</li>
     <li><b>Στήλες:</b> το κουμπί «Στήλες» προσθέτει/αφαιρεί στήλες και αλλάζει τη σειρά τους (↑ ↓). Η επιλογή κρατιέται στον browser σας.</li>
+    <li><b>Αντιγραφή email:</b> κλικ πάνω σε ένα email (υπογραμμισμένο με διακεκομμένη) το αντιγράφει. Το κουμπί <b>«Αντιγραφή email»</b> αντιγράφει μαζί όλα τα email της λίστας που βλέπετε (με τα φίλτρα και την αναζήτηση που έχετε βάλει), χωρισμένα με «;» για επικόλληση στο Outlook – για μαζική αποστολή καλύτερα στην «Ιδιαίτ. κοιν.» (Bcc).</li>
     <li><b>Ταξινόμηση:</b> κλικ στον τίτλο μιας στήλης → ▲ αύξουσα, ξανά → ▼ φθίνουσα, τρίτη φορά → αρχική σειρά. Ισχύει σε όλους τους πίνακες.</li>
   </ul>
 
@@ -1470,6 +1473,7 @@ function bindMain(partial) {
     const q = e.target.closest("[data-quick]"); if (q) { e.stopPropagation(); return openForm("action", { company: codeLabel(+q.dataset.quick), year: q.dataset.year }); }
     const st = e.target.closest("[data-stage]"); if (st) { ui.stage = ui.stage === st.dataset.stage ? "" : st.dataset.stage; return rerender(); }
     if (e.target.id === "colBtn") return colPopover(e.target);
+    if (e.target.id === "cpAll") return copyVisibleEmails();
     if (e.target.id === "addH") { busy(e.target, () => Core.addListValue("Χειριστής", $("#newH").value)); return; }
     if (e.target.id === "pwBtn") { changePw(); return; }
     const la = e.target.closest("[data-listadd]"); if (la) { const h = la.dataset.listadd; const inp = [...document.querySelectorAll("[data-listin]")].find(i => i.dataset.listin === h); busy(la, () => Core.addListValue(h, inp.value)); return; }
@@ -1574,6 +1578,38 @@ document.addEventListener("click", e => {
 });
 new MutationObserver(() => { const v = $("#view"); if (v && !v._sorted) { v._sorted = true; applySorts(v); } }).observe(document.body, { childList: true, subtree: true });
 
+// ---------- αντιγραφή email ----------
+const EMAIL_RE = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/g;
+const emailsOf = v => String(v ?? "").match(EMAIL_RE) || [];
+function emailsHTML(v) {
+  const t = String(v ?? ""); if (!t.trim()) return "";
+  const parts = []; let last = 0;
+  for (const m of t.matchAll(EMAIL_RE)) { parts.push(esc(t.slice(last, m.index))); parts.push(`<span class="cp" data-copy="${esc(m[0])}" title="Κλικ για αντιγραφή">${esc(m[0])}</span>`); last = m.index + m[0].length; }
+  parts.push(esc(t.slice(last)));
+  return parts.join("");
+}
+async function copyText(text, msg) {
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {
+    try { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); ok = document.execCommand("copy"); ta.remove(); } catch (e2) {}
+  }
+  toast(ok ? msg : "Δεν έγινε αντιγραφή – ο browser δεν το επέτρεψε.", !ok);
+}
+document.addEventListener("click", e => {
+  const c = e.target.closest("[data-copy]"); if (!c) return;
+  e.preventDefault(); e.stopPropagation(); copyText(c.dataset.copy, `Αντιγράφηκε: ${c.dataset.copy}`);
+}, true);
+function copyVisibleEmails() {
+  const tb = document.querySelector("#view table[data-sort-id=trk], #view table[data-sort-id=cos]"); if (!tb) return;
+  const seen = new Set(), out = [], comp = Core.derive().comp;
+  for (const tr of tb.querySelectorAll("tbody tr[data-code]")) {   // οι γραμμές που φαίνονται, με τη σειρά τους – ανεξάρτητα από το αν φαίνεται η στήλη Email
+    const c = comp.get(+tr.dataset.code); if (!c) continue;
+    for (const m of emailsOf(c.email)) { const k = m.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(m); } }
+  }
+  if (!out.length) return toast("Δεν υπάρχουν email στη λίστα που βλέπετε.", true);
+  copyText(out.join("; "), `Αντιγράφηκαν ${out.length} email (χωρισμένα με «;» – επικόλληση στο Προς / Κοιν. / Ιδιαίτ. κοιν.).`);
+}
+
 // ---------- χώρες ----------
 function countryFixes() {
   const ch = [];
@@ -1659,7 +1695,7 @@ function openDrawer(code) {
       ${["Κλάδος", "Χώρα", "FG/RET", "Tellody", "Αναγνωριστικό List"].map(h => `<div><span>${h}</span>${esc(h === "Χώρα" ? countryLabel(c.v[h]) : c.v[h]) || "—"}</div>`).join("")}
       <div><span>Σύνδεσμος αρχείων</span>${/^https:\/\//.test(String(c.v["Σύνδεσμος αρχείων"])) ? `<a href="${esc(c.v["Σύνδεσμος αρχείων"])}" target="_blank" rel="noopener">άνοιγμα</a>` : esc(c.v["Σύνδεσμος αρχείων"]) || "—"}</div></div></div>
     <div class="sec"><h3>Επαφές (${c.contacts.length})</h3>${c.contacts.map(p => `<div class="card"><div class="hd"><b>${esc(p.v["Ονοματεπώνυμο"])}${p.v["Κύρια επαφή"] === "Ναι" ? ' <span class="chip" style="padding:1px 8px">κύρια</span>' : ""}</b><span><button class="btn sm" data-edit="P" data-i="${p.i}">Επεξεργασία</button> <button class="btn sm" data-rm="P" data-i="${p.i}">Αφαίρεση</button></span></div>
-      <div class="grid">${["Θέση", "Τηλέφωνο", "Email", "Σημειώσεις"].filter(h => String(p.v[h] ?? "").trim()).map(h => `<div><span>${h}</span>${esc(p.v[h])}</div>`).join("")}</div></div>`).join("") || '<p class="muted">Καμία επαφή.</p>'}</div>
+      <div class="grid">${["Θέση", "Τηλέφωνο", "Email", "Σημειώσεις"].filter(h => String(p.v[h] ?? "").trim()).map(h => `<div><span>${h}</span>${h === "Email" ? emailsHTML(p.v[h]) : esc(p.v[h])}</div>`).join("")}</div></div>`).join("") || '<p class="muted">Καμία επαφή.</p>'}</div>
     <div class="sec"><h3>Leads</h3>${leads.map(l => `<div class="card"><div class="hd"><b style="font-size:17px">${l.year}</b><span class="st"><i class="dot ${l.open ? "g" : "k"}"></i>${esc(l.stage || "—")}</span><span><button class="btn sm" data-f="action" data-year="${l.year}">+ Ενέργεια</button> <button class="btn sm" data-offer="${l.i}">Προσφορά</button> <button class="btn sm" data-edit="L" data-i="${l.i}">Επεξεργασία</button></span></div>
       <div class="grid"><div><span>Χειριστής</span>${esc(l.handler) || "—"}</div><div><span>Χορηγία</span>${esc(l.sponsor) || "—"}</div><div><span>Προέλευση</span>${lf(l, "Προέλευση") || "—"}</div>
       <div><span>Hall / Stand</span>${lf(l, "Hall") || "—"}${l.v["Αριθμός Stand"] ? " · " + lf(l, "Αριθμός Stand") : ""}</div><div><span>Τ.μ.</span>${lf(l, "Τ.μ.") || "—"}</div><div><span>Τελευταία επαφή</span>${fmtD(l.last) || "καμία"}</div>
