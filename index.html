@@ -117,6 +117,7 @@ th.rzt{position:sticky}th .rz{position:absolute;top:0;right:0;width:9px;height:1
 th .rz::after{content:"";position:absolute;right:0;top:22%;height:56%;width:1px;background:var(--line)}th:hover .rz::after,th .rz.on::after{background:var(--brand2);width:2px}
 body.rzing{cursor:col-resize!important;user-select:none}td.wset,th.wset{overflow-wrap:anywhere}th.wset{white-space:normal}td.wset.nw{white-space:normal}
 @media print{th .rz{display:none}}
+.ai-box{grid-column:1/-1;font-size:13px;margin-top:-2px}.ai-box .btn{margin-right:6px}
 .cbx{position:relative}.cbx-list{position:absolute;left:0;right:0;top:100%;z-index:40;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-height:260px;overflow:auto;margin-top:2px}
 .cbx-list div{padding:6px 10px;cursor:pointer;color:var(--ink);font-size:14px}.cbx-list div small{color:var(--mute);margin-left:6px}.cbx-list div[aria-selected=true],.cbx-list div:hover{background:var(--bg2)}
 .chip{border:1px solid var(--line);background:var(--bg2);border-radius:99px;padding:5px 12px;font-size:13px}
@@ -1287,7 +1288,7 @@ function reportHTML() {
 // ---- Οδηγίες ----
 function helpHTML() {
   const sec = [["start", "Ξεκίνημα"], ["track", "Παρακολούθηση"], ["lead", "Νέο lead"], ["action", "Ενέργεια"], ["contact", "Επαφές"], ["card", "Καρτέλα εταιρείας"],
-    ["delete", "Διαγραφή"], ["import", "Εισαγωγή"], ["export", "Εξαγωγή"], ["summary", "Σύνοψη"], ["offer", "Προσφορά"], ["report", "Αναφορά PDF"], ["settings", "Ρυθμίσεις"], ["admin", "Διαχειριστής"], ["faq", "Συχνές ερωτήσεις"]];
+    ["delete", "Διαγραφή"], ["import", "Εισαγωγή"], ["export", "Εξαγωγή"], ["summary", "Σύνοψη"], ["offer", "Προσφορά"], ["ai", "AI κλάδος"], ["report", "Αναφορά PDF"], ["settings", "Ρυθμίσεις"], ["admin", "Διαχειριστής"], ["faq", "Συχνές ερωτήσεις"]];
   return `<article class="help">
   <h1 style="font-size:28px;margin:4px 0 6px">Οδηγίες χρήσης</h1>
   <p class="muted" style="margin:0">Το Leads CRM κρατά τις εταιρείες, τα leads ανά χρονιά, τις ενέργειες και τις επαφές της έκθεσης. Όλα αποθηκεύονται αμέσως στη βάση και τα βλέπει όλη η ομάδα.</p>
@@ -1391,6 +1392,14 @@ function helpHTML() {
     <li>Οι τιμές, ο ΦΠΑ, το τέλος εγγραφής και το κείμενο πληρωμής που αλλάζετε θυμούνται για τις επόμενες προσφορές σας.</li>
   </ul>
 
+  <h2 id="h-ai">Πρόταση κλάδου με AI</h2>
+  <ul>
+    <li><b>Μία εταιρεία:</b> στη φόρμα «Στοιχεία εταιρείας» ή «Νέο lead» πατήστε <b>«✨ Πρόταση κλάδου με AI»</b>. Εμφανίζεται πρόταση, βεβαιότητα και αιτιολόγηση· με «Χρήση» μπαίνει στο πεδίο και μετά πατάτε Αποθήκευση.</li>
+    <li><b>Πολλές μαζί:</b> Ρυθμίσεις → «Πρόταση κλάδου με AI» → για όλες τις εταιρείες χωρίς κλάδο. Ελέγξτε τον πίνακα (οι κίτρινες έχουν χαμηλή βεβαιότητα και δεν είναι τσεκαρισμένες), αλλάξτε ό,τι θέλετε και πατήστε «Αποθήκευση επιλεγμένων».</li>
+    <li><b>Τι στέλνεται:</b> μόνο όνομα εταιρείας, χώρα και domain εταιρικού email. Ποτέ ονόματα, τηλέφωνα, προσωπικά email ή σημειώσεις. Το AI διαλέγει μόνο από τη λίστα «Κλάδος».</li>
+    <li>Για μικρές τοπικές εταιρείες το AI «μαντεύει» από το όνομα· ελέγχετε πάντα πριν αποθηκεύσετε.</li>
+  </ul>
+
   <h2 id="h-report">Αναφορά (PDF)</h2>
   <ul>
     <li>Διαλέξτε <b>περίοδο</b> (τελευταίες 7 ή 30 ημέρες, τρέχων ή προηγούμενος μήνας, ή δικές σας ημερομηνίες), <b>χρονιά leads</b> και, αν θέλετε, <b>χειριστή</b>.</li>
@@ -1456,6 +1465,7 @@ function settingsHTML() {
     return `<div class="sec"><h3>Χώρες</h3><div class="card"><p style="margin:0 0 8px;font-size:13.5px">Στις φόρμες η χώρα διαλέγεται από λίστα (γράφετε ελληνικά ή αγγλικά) και αποθηκεύεται με το αγγλικό της όνομα.</p>
     ${fx.length ? `<p style="margin:0 0 8px;font-size:13.5px"><b>${fx.length}</b> εταιρείες έχουν τη χώρα γραμμένη αλλιώς (π.χ. ${esc([...new Set(fx.map(x => Core.rows.E.find(r => r.id === x[0]).v["Χώρα"] + " → " + x[2]))].slice(0, 4).join(", "))}).</p><button class="btn pri sm" id="normC">Ενοποίηση ${fx.length} εγγραφών</button>` : `<p class="muted" style="margin:0;font-size:13px">Όλες οι χώρες είναι γραμμένες ενιαία.</p>`}
     ${unk.length ? `<p class="muted" style="margin:8px 0 0;font-size:12.5px">Δεν αναγνωρίστηκαν (διορθώστε τα από την καρτέλα της εταιρείας): ${esc(unk.join(", "))}</p>` : ""}</div></div>`; })()}
+  <div class="sec"><h3>Πρόταση κλάδου με AI</h3><div class="card" id="aiCard">${aiBulkHTML()}</div></div>
   <div class="sec"><h3>Λίστες επιλογών</h3><p class="muted" style="font-size:14px;margin-top:0">Στην «Πορεία ενδιαφέροντος» η 6η τιμή σημαίνει επιτυχία και η 7η απώλεια· στη «Χορηγία» οι 2 πρώτες = σε εξέλιξη, η 3η = κλεισμένη. Οι νέες τιμές μπαίνουν στην πρώτη κενή θέση και τις βλέπουν αμέσως όλοι. Η μετονομασία (✎) αλλάζει την τιμή και σε όλες τις εγγραφές που τη χρησιμοποιούν· η διαγραφή (✕) τη βγάζει μόνο από τη λίστα. Οι τιμές με ειδική σημασία δεν σβήνονται.</p>
   <div class="lists">${Object.keys(L).filter(h => h !== "Ναι/Όχι").map(h => `<div class="card"><b>${esc(h)}</b><ol class="lv">${L[h].map((v, i) => [v, i]).filter(([v]) => String(v).trim() !== "").map(([v, i]) => `<li data-l="${esc(h)}" data-p="${i}"><span class="t">${esc(v)}</span><span class="lb">${Core.canMove(h) ? `<button data-lm="-1" title="Πάνω" aria-label="Πάνω">↑</button><button data-lm="1" title="Κάτω" aria-label="Κάτω">↓</button>` : ""}<button data-le title="Μετονομασία" aria-label="Μετονομασία">✎</button>${Core.isFixed(h, i) ? "" : `<button data-ld title="Διαγραφή" aria-label="Διαγραφή">✕</button>`}</span></li>`).join("")}</ol>
     <div style="display:flex;gap:6px"><input data-listin="${esc(h)}" placeholder="νέα τιμή" style="flex:1;min-height:34px;padding:4px 8px"><button class="btn sm" data-listadd="${esc(h)}">Προσθήκη</button></div></div>`).join("")}</div></div>`;
@@ -1859,6 +1869,7 @@ function openForm(kind, pre) {
   frm.onchange = live;
   live();
   setupCountry(frm);
+  if (kind === "lead" || kind === "editE") setupAiButton(frm, kind);
   for (const m of frm.querySelectorAll(".mchk")) m.onchange = () => { m.parentElement.querySelector(`input[type=hidden][name="${m.dataset.multi}"]`).value = [...m.querySelectorAll("input:checked")].map(x => x.value).join(", "); };
   frm.onsubmit = e => { e.preventDefault(); submitForm(); };
   $("#mClose").onclick = closeForm; $("#mCancel").onclick = closeForm; $("#mOk").onclick = submitForm;
@@ -2059,6 +2070,104 @@ function printOffer() {
   const go = () => { window.print(); setTimeout(done, 1500); };
   if (img && !img.complete) { img.onload = go; img.onerror = go; } else go();
 }
+
+// ---------- Πρόταση κλάδου με AI (Groq, μέσω της Edge Function «suggest-sector») ----------
+const WEBMAIL = new Set(["gmail.com", "googlemail.com", "yahoo.com", "yahoo.gr", "hotmail.com", "hotmail.gr", "outlook.com", "outlook.com.gr", "live.com", "live.gr", "msn.com", "icloud.com", "me.com", "aol.com",
+  "otenet.gr", "hol.gr", "windowslive.com", "mail.ru", "yandex.ru", "yandex.com", "gmx.de", "gmx.net", "web.de", "t-online.de", "libero.it", "orange.fr", "free.fr", "163.com", "126.com", "qq.com", "sina.com", "proton.me", "protonmail.com", "zoho.com", "cosmotemail.gr", "freemail.gr", "in.gr", "forthnet.gr", "vodafone.gr", "wind.gr", "nova.gr", "inbox.com"]);
+function aiPayload(c) {   // ΜΟΝΟ όνομα, χώρα, domain εταιρικού email – τίποτα προσωπικό
+  let domain = "";
+  for (const p of c.contacts) for (const m of emailsOf(p.v["Email"])) { const d = m.split("@")[1].toLowerCase(); if (!WEBMAIL.has(d)) { domain = d; break; } }
+  return { code: c.code, name: c.name, country: String(c.v["Χώρα"] || ""), domain };
+}
+async function aiSuggest(companies) {
+  const sectors = list("Κλάδος");
+  if (!sectors.length) throw new Error("Η λίστα «Κλάδος» στις Ρυθμίσεις είναι κενή.");
+  const { data, error } = await sb.functions.invoke("suggest-sector", { body: { sectors, companies } });
+  if (error) {
+    let code = "", st = error.context && error.context.status;
+    try { const b = await error.context.json(); code = b.error || ""; } catch (e) {}
+    if (st === 404) throw new Error("Η λειτουργία AI δεν έχει στηθεί ακόμα στο Supabase (Edge Function «suggest-sector»). Δείτε Οδηγίες → AI.");
+    if (code === "missing_groq_key") throw new Error("Λείπει το GROQ_API_KEY από τα Secrets του Supabase.");
+    if (code === "rate_limited" || st === 429) throw new Error("Το δωρεάν όριο του Groq γέμισε προσωρινά. Δοκιμάστε σε λίγο.");
+    if (code === "not_authenticated" || st === 401) throw new Error("Η σύνδεσή σας έληξε – αποσυνδεθείτε και ξανασυνδεθείτε.");
+    throw new Error("Η πρόταση AI απέτυχε" + (code ? ` (${code})` : "") + ".");
+  }
+  return data.results || [];
+}
+// κουμπί «✨ Πρόταση» δίπλα στον Κλάδο, στη φόρμα στοιχείων εταιρείας και στο Νέο lead
+function setupAiButton(frm, kind) {
+  const sel = frm.querySelector('select[name="Κλάδος"], select[name="sector"]'); if (!sel) return;
+  const lab = sel.closest("label"); const box = document.createElement("div"); box.className = "ai-box";
+  box.innerHTML = `<button type="button" class="btn sm" id="aiOne">✨ Πρόταση κλάδου με AI</button><span class="ai-out"></span>`;
+  lab.insertAdjacentElement("afterend", box);
+  box.querySelector("#aiOne").onclick = async () => {
+    const out = box.querySelector(".ai-out"), btn = box.querySelector("#aiOne");
+    let payload;
+    if (kind === "editE") { const c = Core.derive().comp.get(cur.pre.i); payload = aiPayload(c); }
+    else {
+      const name = frm.querySelector('[name="company"]').value.trim(); if (!name) { out.textContent = " Γράψτε πρώτα την εταιρεία."; return; }
+      const hit = Core.findCompany(name), c = hit && Core.derive().comp.get(hit.id);
+      const em = (frm.querySelector('[name="cemail"]') || {}).value || "", d = (emailsOf(em)[0] || "").split("@")[1] || "";
+      payload = c ? aiPayload(c) : { code: 1, name: name.replace(/^\s*\d+\s*·\s*/, ""), country: (frm.querySelector('input[type=hidden][name="country"]') || {}).value || "", domain: WEBMAIL.has(d.toLowerCase()) ? "" : d.toLowerCase() };
+      if (c) payload.code = 1;
+    }
+    btn.disabled = true; out.textContent = " Ρωτάω…";
+    try {
+      const [r] = await aiSuggest([payload]);
+      const sent = `στάλθηκαν: ${payload.name}${payload.country ? " · " + payload.country : ""}${payload.domain ? " · " + payload.domain : ""}`;
+      if (!r || !r.sector) { out.innerHTML = ` <span class="muted">Δεν μπόρεσε να κρίνει. (${esc(sent)})</span>`; }
+      else {
+        out.innerHTML = ` <b>${esc(r.sector)}</b> <span class="muted">(${Math.round(r.confidence * 100)}% · ${esc(r.reason)})</span> <button type="button" class="btn sm pri" id="aiUse">Χρήση</button><br><span class="muted" style="font-size:11.5px">${esc(sent)}</span>`;
+        box.querySelector("#aiUse").onclick = () => { sel.value = r.sector; sel.dispatchEvent(new Event("change", { bubbles: true })); out.innerHTML = ` <span class="muted">✔ Μπήκε «${esc(r.sector)}» – πατήστε Αποθήκευση.</span>`; };
+      }
+    } catch (e) { out.innerHTML = ` <span style="color:var(--red)">⚠️ ${esc(e.message)}</span>`; }
+    btn.disabled = false;
+  };
+}
+// μαζική πρόταση για εταιρείες χωρίς κλάδο (Ρυθμίσεις)
+let aiBulk = null;
+function aiBulkHTML() {
+  const missing = [...Core.derive().comp.values()].filter(c => !String(c.v["Κλάδος"] || "").trim());
+  if (!aiBulk) return `<p style="margin:0 0 8px;font-size:13.5px"><b>${missing.length}</b> εταιρείες δεν έχουν κλάδο.</p>
+    <p class="muted" style="margin:0 0 8px;font-size:12.5px">Στέλνονται στο Groq μόνο: όνομα εταιρείας, χώρα και domain του εταιρικού email (π.χ. goodwe.com). Όχι ονόματα επαφών, τηλέφωνα, προσωπικά email ή σημειώσεις. Τίποτα δεν αποθηκεύεται χωρίς τη δική σας έγκριση.</p>
+    ${missing.length ? `<button class="btn pri sm" id="aiRun">✨ Πρόταση για ${missing.length} εταιρείες</button>` : ""}`;
+  const S = list("Κλάδος");
+  return `<div class="prog"><i style="width:${aiBulk.total ? 100 * aiBulk.done / aiBulk.total : 100}%"></i></div>
+    <p style="margin:0 0 8px;font-size:13px">${aiBulk.running ? `Ρωτάω… ${aiBulk.done} / ${aiBulk.total}` : `Έτοιμο: ${aiBulk.rows.filter(r => r.sector).length} προτάσεις από ${aiBulk.total}.`}${aiBulk.err ? ` <span style="color:var(--red)">⚠️ ${esc(aiBulk.err)}</span>` : ""}</p>
+    ${aiBulk.rows.length ? `<div class="scroll" style="max-height:50vh"><table class="imp-tbl"><thead><tr><th><input type="checkbox" id="aiAll" checked style="width:16px;height:16px;min-height:0"></th><th>Εταιρεία</th><th>Domain</th><th>Πρόταση</th><th>Βεβαιότητα</th><th>Αιτιολόγηση</th></tr></thead><tbody>
+      ${aiBulk.rows.map((r, i) => `<tr class="${r.sector && r.confidence < 0.6 ? "st-warn" : ""}"><td><input type="checkbox" data-ai="${i}"${r.ok ? " checked" : ""} style="width:16px;height:16px;min-height:0"></td><td><b>${esc(r.name)}</b></td><td class="muted">${esc(r.domain)}</td>
+        <td><select data-ais="${i}">${opt(S, r.sector, "—")}</select></td><td class="num">${r.sector ? Math.round(r.confidence * 100) + "%" : "–"}</td><td class="muted">${esc(r.reason)}</td></tr>`).join("")}</tbody></table></div>
+      ${aiBulk.running ? "" : `<div style="display:flex;gap:8px;margin-top:8px"><button class="btn pri sm" id="aiSave">Αποθήκευση επιλεγμένων</button><button class="btn sm" id="aiClose">Ακύρωση</button></div>`}` : ""}`;
+}
+function drawAiBulk() { const b = $("#aiCard"); if (b) b.innerHTML = aiBulkHTML(); }
+async function runAiBulk() {
+  const missing = [...Core.derive().comp.values()].filter(c => !String(c.v["Κλάδος"] || "").trim());
+  aiBulk = { total: missing.length, done: 0, rows: [], running: true, err: "" }; drawAiBulk();
+  for (let i = 0; i < missing.length; i += 20) {
+    const batch = missing.slice(i, i + 20).map(aiPayload);
+    try {
+      const res = await aiSuggest(batch), by = new Map(res.map(r => [r.code, r]));
+      for (const p of batch) { const r = by.get(p.code) || {}; aiBulk.rows.push({ code: p.code, name: p.name, domain: p.domain, sector: r.sector || "", confidence: r.confidence || 0, reason: r.reason || "", ok: !!r.sector && (r.confidence || 0) >= 0.6 }); }
+    } catch (e) { aiBulk.err = e.message; break; }
+    aiBulk.done = Math.min(missing.length, i + 20); drawAiBulk();
+  }
+  aiBulk.running = false; drawAiBulk();
+}
+document.addEventListener("click", async e => {
+  if (!e.target.closest("#aiCard")) return;
+  const id = e.target.id;
+  if (id === "aiRun") runAiBulk();
+  else if (id === "aiClose") { aiBulk = null; drawAiBulk(); }
+  else if (id === "aiAll") { document.querySelectorAll("#aiCard [data-ai]").forEach(c => { c.checked = e.target.checked; aiBulk.rows[+c.dataset.ai].ok = c.checked; }); }
+  else if (e.target.dataset.ai !== undefined) aiBulk.rows[+e.target.dataset.ai].ok = e.target.checked;
+  else if (id === "aiSave") {
+    const ch = aiBulk.rows.filter(r => r.ok && r.sector).map(r => [r.code, "Κλάδος", r.sector]);
+    if (!ch.length) return toast("Δεν έχει επιλεγεί καμία πρόταση.", true);
+    e.target.disabled = true;
+    try { const n = await Core.setFieldMany("E", ch); aiBulk = null; after({ msg: `Μπήκε κλάδος σε ${n} εταιρείες.` }); } catch (er) { toast(er.message, true); e.target.disabled = false; }
+  }
+});
+document.addEventListener("change", e => { const s = e.target.closest("#aiCard [data-ais]"); if (!s) return; const r = aiBulk.rows[+s.dataset.ais]; r.sector = s.value; r.ok = !!s.value; const cb = document.querySelector(`#aiCard [data-ai="${s.dataset.ais}"]`); if (cb) cb.checked = r.ok; });
 
 
 // ---------- εισαγωγή από Excel / CSV ----------
