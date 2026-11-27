@@ -211,6 +211,7 @@ export function TrackingPage({ onOpenCompany }: { onOpenCompany: (code: number) 
           columns={columns}
           rows={rows}
           rowKey={(r) => r.lead.id}
+          rowAction={(r) => (r.lead.company ? () => onOpenCompany(r.lead.code) : undefined)}
           rowStyle={(r) => (r.lead.open && rowBg[r.signal] ? { background: rowBg[r.signal] } : undefined)}
         />
       )}

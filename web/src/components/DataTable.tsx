@@ -29,6 +29,7 @@ interface Props<T> {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string | number;
+  rowAction?: (row: T) => (() => void) | undefined;
   rowStyle?: (row: T) => CSSProperties | undefined;
   /** στήλη στην αρχή κάθε γραμμής (π.χ. κουμπιά), χωρίς ταξινόμηση */
   leading?: { label: string; render: (row: T) => ReactNode };
@@ -36,7 +37,7 @@ interface Props<T> {
 const collator = new Intl.Collator('el', { numeric: true, sensitivity: 'base' });
 
 /** Πίνακας με ταξινόμηση (κλικ στον τίτλο) και αλλαγή πλάτους (σύρσιμο ή βελάκια στην άκρη του τίτλου). */
-export function DataTable<T>({ id, caption, columns, rows, rowKey, rowStyle, leading }: Props<T>) {
+export function DataTable<T>({ id, caption, columns, rows, rowKey, rowStyle, leading, rowAction }: Props<T>) {
   const [sorts, setSorts] = usePref('sorts', {});
   const [widths, setWidths] = usePref('widths', {});
   const [dragW, setDragW] = useState<Record<string, number>>({});
@@ -164,16 +165,36 @@ export function DataTable<T>({ id, caption, columns, rows, rowKey, rowStyle, lea
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {sorted.map((r) => (
-            <Table.Tr key={rowKey(r)} style={rowStyle?.(r)}>
-              {leading && <Table.Td style={{ whiteSpace: 'nowrap' }}>{leading.render(r)}</Table.Td>}
-              {columns.map((c) => (
-                <Table.Td key={c.key} style={{ ...cellStyle(c), textAlign: c.align }}>
-                  {c.render(r)}
-                </Table.Td>
-              ))}
-            </Table.Tr>
-          ))}
+          {sorted.map((r) => {
+            const activate = rowAction?.(r);
+            return (
+              <Table.Tr
+                key={rowKey(r)}
+                style={rowStyle?.(r)}
+                className={activate ? classes.clickableRow : undefined}
+                onClick={
+                  activate &&
+                  ((event) => {
+                    const target = event.target;
+                    if (
+                      target instanceof Element &&
+                      target.closest('button, a, input, select, textarea, label, [role="button"], [contenteditable]')
+                    )
+                      return;
+                    if (window.getSelection()?.toString()) return;
+                    activate();
+                  })
+                }
+              >
+                {leading && <Table.Td style={{ whiteSpace: 'nowrap' }}>{leading.render(r)}</Table.Td>}
+                {columns.map((c) => (
+                  <Table.Td key={c.key} style={{ ...cellStyle(c), textAlign: c.align }}>
+                    {c.render(r)}
+                  </Table.Td>
+                ))}
+              </Table.Tr>
+            );
+          })}
         </Table.Tbody>
       </Table>
     </Table.ScrollContainer>

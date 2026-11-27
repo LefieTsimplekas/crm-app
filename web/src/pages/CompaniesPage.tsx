@@ -48,7 +48,14 @@ export function CompaniesPage({ onOpen }: { onOpen: (code: number) => void }) {
         Εταιρείες: {rows.length}
       </Text>
       {rows.length ? (
-        <DataTable id="companies" caption="Εταιρείες" columns={columns} rows={rows} rowKey={(c) => c.code} />
+        <DataTable
+          id="companies"
+          caption="Εταιρείες"
+          columns={columns}
+          rows={rows}
+          rowKey={(c) => c.code}
+          rowAction={(c) => () => onOpen(c.code)}
+        />
       ) : (
         <Empty title={needle ? 'Δεν βρέθηκαν εταιρείες με αυτή την αναζήτηση' : 'Δεν υπάρχουν διαθέσιμες εταιρείες'} />
       )}
