@@ -1,6 +1,6 @@
 import { Center, Loader } from '@mantine/core';
 import { useHash } from '@mantine/hooks';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { LoginPage } from './auth/LoginPage';
 import { useSession } from './auth/useSession';
 import { AppLayout, type NavItem } from './components/AppLayout';
@@ -8,12 +8,14 @@ import { flushPrefs, loadPrefs } from './data/prefs';
 import { store } from './data/store';
 import { supabase } from './data/supabase';
 import { useData } from './data/useData';
+import { CompanyDrawer } from './components/CompanyDrawer';
+import { CompaniesPage } from './pages/CompaniesPage';
 import { ComingSoon } from './pages/ComingSoon';
 import { TrackingPage } from './pages/TrackingPage';
 
 const NAV: (NavItem & { phase?: number })[] = [
   { id: 'tracking', label: 'Παρακολούθηση' },
-  { id: 'companies', label: 'Εταιρείες', phase: 2 },
+  { id: 'companies', label: 'Εταιρείες' },
   { id: 'history', label: 'Ενέργειες', phase: 2 },
   { id: 'summary', label: 'Σύνοψη', phase: 3 },
   { id: 'report', label: 'Αναφορά', phase: 3 },
@@ -23,7 +25,8 @@ const NAV: (NavItem & { phase?: number })[] = [
 
 export function App() {
   const session = useSession();
-  const { live } = useData();
+  const { live, derived } = useData();
+  const [selection, setSelection] = useState<{ code: number; uid: string } | null>(null);
   const [hash, setHash] = useHash();
   const page = NAV.find((n) => `#${n.id}` === hash) ?? NAV[0];
   const uid = session?.user.id;
@@ -62,7 +65,11 @@ export function App() {
   async function logout() {
     await flushPrefs();
     await supabase.auth.signOut();
+    setSelection(null);
   }
+
+  const selected = selection?.uid === session.user.id ? selection : null;
+  const openCompany = (code: number) => setSelection({ code, uid: session.user.id });
 
   return (
     <AppLayout
@@ -73,7 +80,18 @@ export function App() {
       onNavigate={(id) => setHash(`#${id}`)}
       onLogout={() => void logout()}
     >
-      {page.id === 'tracking' ? <TrackingPage /> : <ComingSoon title={page.label} phase={page.phase ?? 2} />}
+      {page.id === 'tracking' ? (
+        <TrackingPage onOpenCompany={openCompany} />
+      ) : page.id === 'companies' ? (
+        <CompaniesPage onOpen={openCompany} />
+      ) : (
+        <ComingSoon title={page.label} phase={page.phase ?? 2} />
+      )}
+      <CompanyDrawer
+        opened={selected !== null}
+        company={selected ? derived.companies.get(selected.code) : undefined}
+        onClose={() => setSelection(null)}
+      />
     </AppLayout>
   );
 }
