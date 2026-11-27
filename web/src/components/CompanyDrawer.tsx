@@ -1,7 +1,18 @@
-import { Drawer, Group, Paper, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Badge, Drawer } from '@mantine/core';
+import type { ReactNode } from 'react';
 import { formatDay } from '../domain/text';
 import type { Company } from '../domain/types';
+import classes from './CompanyDrawer.module.css';
 import { Emails } from './Emails';
+
+function Field({ label, children, full }: { label: string; children: ReactNode; full?: boolean }) {
+  return (
+    <div className={full ? classes.full : undefined}>
+      <dt>{label}</dt>
+      <dd>{children ?? '—'}</dd>
+    </div>
+  );
+}
 
 export function CompanyDrawer({
   opened,
@@ -12,109 +23,146 @@ export function CompanyDrawer({
   company?: Company;
   onClose: () => void;
 }) {
+  const link = company?.row.files_link;
+  const leads = [...(company?.leads ?? [])].sort((a, b) => b.year - a.year);
+  const actions = [...(company?.actions ?? [])].sort((a, b) => b.day - a.day || b.id - a.id);
+
   return (
     <Drawer
       opened={opened}
       onClose={onClose}
-      title={company?.name ?? 'Καρτέλα εταιρείας'}
+      title={
+        <>
+          {company && <span className={classes.code}>Κωδ. {company.code}</span>}
+          {company?.name ?? 'Καρτέλα εταιρείας'}
+        </>
+      }
       position="right"
-      size="lg"
+      size="min(640px, 100vw)"
+      classNames={{
+        content: classes.content,
+        header: classes.header,
+        title: classes.title,
+        body: classes.body,
+        close: classes.close,
+      }}
       closeButtonProps={{ 'aria-label': 'Κλείσιμο καρτέλας εταιρείας' }}
     >
       {company ? (
-        <Stack gap="lg">
-          <Group gap="sm">
-            <Text size="sm">Κωδικός {company.code}</Text>
-            {company.row.sector && <Text size="sm">{company.row.sector}</Text>}
-            {company.row.country && <Text size="sm">{company.row.country}</Text>}
-          </Group>
-          <Stack gap="xs">
-            <Title order={3} size="h5">
-              Επαφές
-            </Title>
-            {!company.contacts.length && (
-              <Text c="dimmed" size="sm">
-                Δεν υπάρχουν επαφές.
-              </Text>
-            )}
+        <>
+          <section className={classes.section}>
+            <h3>Στοιχεία</h3>
+            <dl className={classes.grid}>
+              <Field label="Κλάδος">{company.row.sector || '—'}</Field>
+              <Field label="Χώρα">{company.row.country || '—'}</Field>
+              <Field label="FG/RET">{company.row.fgret || '—'}</Field>
+              <Field label="Tellody">{company.row.tellody || '—'}</Field>
+              <Field label="Αναγνωριστικό List">{company.row.list_id || '—'}</Field>
+              <Field label="Σύνδεσμος αρχείων">
+                {link?.startsWith('https://') ? (
+                  <Anchor href={link} target="_blank" rel="noopener noreferrer" fz="inherit">
+                    Άνοιγμα
+                  </Anchor>
+                ) : (
+                  link || '—'
+                )}
+              </Field>
+            </dl>
+          </section>
+          <section className={classes.section}>
+            <h3>Επαφές ({company.contacts.length})</h3>
+            {!company.contacts.length && <p className={classes.muted}>Καμία επαφή.</p>}
             {company.contacts.map((contact) => (
-              <Paper withBorder p="sm" key={contact.id}>
-                <Text fw={600}>
-                  {contact.name}
-                  {contact.is_primary ? ' · Κύρια επαφή' : ''}
-                </Text>
-                {contact.role && <Text size="sm">{contact.role}</Text>}
-                {contact.phone && <Text size="sm">{contact.phone}</Text>}
-                {contact.email && (
-                  <Text size="sm">
-                    <Emails value={contact.email} />
-                  </Text>
-                )}
-                {contact.notes && (
-                  <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-                    {contact.notes}
-                  </Text>
-                )}
-              </Paper>
-            ))}
-          </Stack>
-          <Stack gap="xs">
-            <Title order={3} size="h5">
-              Leads
-            </Title>
-            {!company.leads.length && (
-              <Text c="dimmed" size="sm">
-                Δεν υπάρχουν leads.
-              </Text>
-            )}
-            {[...company.leads]
-              .sort((a, b) => b.year - a.year)
-              .map((lead) => (
-                <Paper withBorder p="sm" key={lead.id}>
-                  <Text fw={600}>{[lead.year, lead.stage, lead.sponsor].filter(Boolean).join(' · ')}</Text>
-                  <Text size="sm">
-                    {[
-                      lead.handler,
-                      lead.row.hall && `Hall ${lead.row.hall}`,
-                      lead.row.stand && `Stand ${lead.row.stand}`,
-                      lead.row.sqm && `${lead.row.sqm} τ.μ.`,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </Text>
-                  {lead.row.notes && (
-                    <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-                      {lead.row.notes}
-                    </Text>
+              <article className={classes.card} key={contact.id}>
+                <div className={classes.cardHeader}>
+                  <strong>{contact.name}</strong>
+                  {contact.is_primary && (
+                    <Badge variant="light" size="sm">
+                      Κύρια
+                    </Badge>
                   )}
-                </Paper>
-              ))}
-          </Stack>
-          <Stack gap="xs">
-            <Title order={3} size="h5">
-              Ιστορικό ενεργειών
-            </Title>
-            {!company.actions.length && (
-              <Text c="dimmed" size="sm">
-                Δεν υπάρχουν ενέργειες.
-              </Text>
+                </div>
+                <dl className={classes.grid}>
+                  {contact.role && <Field label="Θέση">{contact.role}</Field>}
+                  {contact.phone && <Field label="Τηλέφωνο">{contact.phone}</Field>}
+                  {contact.email && (
+                    <Field label="Email">
+                      <Emails value={contact.email} />
+                    </Field>
+                  )}
+                  {contact.notes && (
+                    <Field label="Σημειώσεις" full>
+                      {contact.notes}
+                    </Field>
+                  )}
+                </dl>
+              </article>
+            ))}
+          </section>
+          <section className={classes.section}>
+            <h3>Leads</h3>
+            {!leads.length && <p className={classes.muted}>Κανένα lead.</p>}
+            {leads.map((lead) => (
+              <article className={classes.card} key={lead.id}>
+                <div className={classes.cardHeader}>
+                  <strong className={classes.year}>{lead.year || '—'}</strong>
+                  <span className={classes.stage}>
+                    <span className={classes.dot} data-open={lead.open} />
+                    {lead.stage || '—'}
+                  </span>
+                </div>
+                <dl className={classes.grid}>
+                  <Field label="Χειριστής">{lead.handler || '—'}</Field>
+                  <Field label="Χορηγία">{lead.sponsor || '—'}</Field>
+                  <Field label="Προέλευση">{lead.row.source || '—'}</Field>
+                  <Field label="Hall / Stand">
+                    {[lead.row.hall, lead.row.stand].filter(Boolean).join(' · ') || '—'}
+                  </Field>
+                  <Field label="Τ.μ.">{lead.row.sqm === '' ? '—' : lead.row.sqm}</Field>
+                  <Field label="Τελευταία επαφή">{formatDay(lead.lastDay) || 'καμία'}</Field>
+                  <Field label="Εκθέτης προηγ. χρονιάς">{lead.prevExhibitor ? 'Ναι' : 'Όχι'}</Field>
+                  {lead.row.cancel_reason && <Field label="Λόγος ακύρωσης">{lead.row.cancel_reason}</Field>}
+                  {lead.row.notes && (
+                    <Field label="Σημειώσεις" full>
+                      {lead.row.notes}
+                    </Field>
+                  )}
+                  {lead.row.list_comments && (
+                    <Field label="Αρχικά σχόλια List" full>
+                      {lead.row.list_comments}
+                    </Field>
+                  )}
+                </dl>
+              </article>
+            ))}
+          </section>
+          <section className={classes.section}>
+            <h3>Ιστορικό ενεργειών ({actions.length})</h3>
+            {actions.length ? (
+              <ol className={classes.timeline}>
+                {actions.map((action) => (
+                  <li key={action.id}>
+                    <div className={classes.muted}>
+                      {[formatDay(action.day), action.year, action.handler].filter(Boolean).join(' · ')}
+                    </div>
+                    <div>
+                      {action.type && (
+                        <>
+                          <strong>{action.type}</strong> ·{' '}
+                        </>
+                      )}
+                      {action.description}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className={classes.muted}>Καμία ενέργεια.</p>
             )}
-            {[...company.actions]
-              .sort((a, b) => b.day - a.day || b.id - a.id)
-              .map((action) => (
-                <Paper withBorder p="sm" key={action.id}>
-                  <Text size="sm" fw={600}>
-                    {[formatDay(action.day), action.type, action.handler].filter(Boolean).join(' · ')}
-                  </Text>
-                  <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-                    {action.description}
-                  </Text>
-                </Paper>
-              ))}
-          </Stack>
-        </Stack>
+          </section>
+        </>
       ) : (
-        <Text c="dimmed">Η εταιρεία δεν είναι διαθέσιμη.</Text>
+        <p className={classes.muted}>Η εταιρεία δεν είναι διαθέσιμη.</p>
       )}
     </Drawer>
   );
