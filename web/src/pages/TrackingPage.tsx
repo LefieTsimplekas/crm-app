@@ -1,4 +1,5 @@
 import {
+  Anchor,
   Button,
   Chip,
   Group,
@@ -41,7 +42,7 @@ function Kpi({ value, label, tone }: { value: number; label: string; tone?: 'red
   );
 }
 
-export function TrackingPage() {
+export function TrackingPage({ onOpenCompany }: { onOpenCompany: (code: number) => void }) {
   const { state, error, data, derived } = useData();
   const [cols, setCols] = usePref('cols', DEFAULT_COLUMNS);
   const [prefYear, setYear] = usePref('year', 0);
@@ -73,8 +74,29 @@ export function TrackingPage() {
     () =>
       cols
         .map((c) => TRACKING_COLUMNS.find((x) => x.key === c))
-        .filter((c): c is (typeof TRACKING_COLUMNS)[number] => !!c),
-    [cols],
+        .filter((c): c is (typeof TRACKING_COLUMNS)[number] => !!c)
+        .map((c) =>
+          c.key === 'Εταιρεία'
+            ? {
+                ...c,
+                render: (r: TrackingRow) =>
+                  r.lead.company ? (
+                    <Anchor
+                      component="button"
+                      type="button"
+                      ta="left"
+                      fw={600}
+                      onClick={() => onOpenCompany(r.lead.code)}
+                    >
+                      {r.lead.companyName}
+                    </Anchor>
+                  ) : (
+                    c.render(r)
+                  ),
+              }
+            : c,
+        ),
+    [cols, onOpenCompany],
   );
 
   function copyAll() {
