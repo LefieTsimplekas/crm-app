@@ -11,12 +11,14 @@ import classes from './CompanyDrawer.module.css';
 import { ContactForm } from './ContactForm';
 import { Emails } from './Emails';
 import { LeadForm } from './LeadForm';
+import { RemoveCompanyItemDialog, type CompanyItemToRemove } from './RemoveCompanyItemDialog';
 
 type Editor =
   | { code: number; kind: 'contact'; contact?: ContactRow }
   | { code: number; kind: 'action'; action?: ActionRow; year?: number }
   | { code: number; kind: 'lead'; lead?: LeadRow }
-  | { code: number; kind: 'company' | 'rename' };
+  | { code: number; kind: 'company' | 'rename' }
+  | { code: number; kind: 'remove'; item: CompanyItemToRemove };
 
 function Field({ label, children, full }: { label: string; children: ReactNode; full?: boolean }) {
   return (
@@ -152,6 +154,13 @@ export function CompanyDrawer({
                 <CompanyContacts
                   company={company}
                   onEdit={(contact) => setEditing({ code: company.code, kind: 'contact', contact })}
+                  onRemove={(contact) =>
+                    setEditing({
+                      code: company.code,
+                      kind: 'remove',
+                      item: { table: 'contacts', id: contact.id, label: contact.name },
+                    })
+                  }
                 />
                 <section className={classes.section}>
                   <h3>Leads</h3>
@@ -224,6 +233,27 @@ export function CompanyDrawer({
                           >
                             Αλλαγή
                           </Button>
+                          <Button
+                            className={classes.editAction}
+                            variant="default"
+                            size="compact-sm"
+                            aria-label={`Διαγραφή ενέργειας ${formatDay(action.day)} (${action.id})`}
+                            onClick={() =>
+                              setEditing({
+                                code: company.code,
+                                kind: 'remove',
+                                item: {
+                                  table: 'actions',
+                                  id: action.id,
+                                  label: [formatDay(action.day), action.type, action.description]
+                                    .filter(Boolean)
+                                    .join(' · '),
+                                },
+                              })
+                            }
+                          >
+                            Σβήσιμο
+                          </Button>
                           <div className={classes.muted}>
                             {[formatDay(action.day), action.year, action.handler].filter(Boolean).join(' · ')}
                           </div>
@@ -249,6 +279,14 @@ export function CompanyDrawer({
           </Drawer.Body>
         </Drawer.Content>
       </Drawer.Root>
+      {company && activeEditor?.kind === 'remove' && (
+        <RemoveCompanyItemDialog
+          companyCode={company.code}
+          item={activeEditor.item}
+          onClose={closeForm}
+          onSaved={saved}
+        />
+      )}
       {company && activeEditor?.kind === 'contact' && (
         <ContactForm company={company} contact={activeEditor.contact} onClose={closeForm} onSaved={saved} />
       )}
@@ -276,7 +314,15 @@ export function CompanyDrawer({
   );
 }
 
-function CompanyContacts({ company, onEdit }: { company: Company; onEdit: (contact: ContactRow) => void }) {
+function CompanyContacts({
+  company,
+  onEdit,
+  onRemove,
+}: {
+  company: Company;
+  onEdit: (contact: ContactRow) => void;
+  onRemove: (contact: ContactRow) => void;
+}) {
   return (
     <section className={classes.section}>
       <h3>Επαφές ({company.contacts.length})</h3>
@@ -298,6 +344,14 @@ function CompanyContacts({ company, onEdit }: { company: Company; onEdit: (conta
               onClick={() => onEdit(contact)}
             >
               Επεξεργασία
+            </Button>
+            <Button
+              variant="default"
+              size="compact-sm"
+              aria-label={`Αφαίρεση επαφής ${contact.name}`}
+              onClick={() => onRemove(contact)}
+            >
+              Αφαίρεση
             </Button>
           </div>
           <dl className={classes.grid}>
