@@ -13,6 +13,7 @@ import { CompaniesPage } from './pages/CompaniesPage';
 import { ComingSoon } from './pages/ComingSoon';
 import { HistoryPage } from './pages/HistoryPage';
 import { ReportPage } from './pages/ReportPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { SummaryPage } from './pages/SummaryPage';
 import { TrackingPage } from './pages/TrackingPage';
 
@@ -22,7 +23,7 @@ const NAV: (NavItem & { phase?: number })[] = [
   { id: 'history', label: 'Ενέργειες' },
   { id: 'summary', label: 'Σύνοψη' },
   { id: 'report', label: 'Αναφορά' },
-  { id: 'settings', label: 'Ρυθμίσεις', phase: 4 },
+  { id: 'settings', label: 'Ρυθμίσεις' },
   { id: 'help', label: 'Οδηγίες', phase: 4 },
 ];
 
@@ -93,6 +94,8 @@ export function App() {
         <SummaryPage />
       ) : page.id === 'report' ? (
         <ReportPage email={session.user.email ?? ''} />
+      ) : page.id === 'settings' ? (
+        <SettingsPage />
       ) : (
         <ComingSoon title={page.label} phase={page.phase ?? 2} />
       )}
