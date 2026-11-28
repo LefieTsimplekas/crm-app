@@ -9,6 +9,7 @@ import { CountryCleanup } from './settings/CountryCleanup';
 import { DatabaseUsage } from './settings/DatabaseUsage';
 import { OptionList } from './settings/OptionList';
 import { PasswordSettings } from './settings/PasswordSettings';
+import { SectorBulk } from './settings/SectorBulk';
 import { TrafficUsage } from './settings/TrafficUsage';
 
 function PersonalSettings({ handlers }: { handlers: string[] }) {
@@ -106,6 +107,7 @@ export function SettingsPage() {
         <PasswordSettings />
         <CountryCleanup />
         <TrafficUsage />
+        <SectorBulk />
       </SimpleGrid>
       <Stack gap="sm">
         <Title order={2} size="h4">

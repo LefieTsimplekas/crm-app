@@ -1,0 +1,63 @@
+.crm-offer-document {
+  background: white;
+  color: #14211e;
+  border: 1px solid #dde5e2;
+  padding: 1rem;
+  font-family: Arial, sans-serif;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.crm-offer-document img {
+  display: block;
+  width: min(62mm, 100%);
+  margin: 0 auto 1rem;
+}
+
+.crm-offer-document h1 {
+  font-size: 1.25rem;
+}
+
+.crm-offer-document h2 {
+  font-size: 1rem;
+}
+
+.crm-offer-document p {
+  white-space: pre-wrap;
+}
+
+.crm-offer-document table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.crm-offer-document :is(th, td) {
+  border: 1px solid #dde5e2;
+  padding: 0.4rem 0.65rem;
+  text-align: left;
+}
+
+.crm-offer-document :is(th, td):last-child {
+  text-align: right;
+}
+
+.crm-offer-document thead {
+  background: #e6f5c8;
+}
+
+.crm-offer-total {
+  background: #e6f5c8;
+  font-weight: bold;
+}
+
+@media print {
+  .crm-offer-document {
+    border: 0;
+    padding: 0;
+    print-color-adjust: exact;
+  }
+
+  .crm-offer-document tr {
+    break-inside: avoid;
+  }
+}

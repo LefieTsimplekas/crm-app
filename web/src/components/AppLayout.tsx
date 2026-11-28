@@ -14,10 +14,11 @@ interface Props {
   current: string;
   onNavigate: (id: string) => void;
   onLogout: () => void;
+  onInstall?: () => void;
   children: ReactNode;
 }
 
-export function AppLayout({ email, live, items, current, onNavigate, onLogout, children }: Props) {
+export function AppLayout({ email, live, items, current, onNavigate, onLogout, onInstall, children }: Props) {
   return (
     <>
       <header className={classes.header}>
@@ -46,6 +47,11 @@ export function AppLayout({ email, live, items, current, onNavigate, onLogout, c
               Παλιά έκδοση
             </Anchor>
             <ExportExcelButton />
+            {onInstall && (
+              <Button variant="outline" color="gray.0" size="xs" onClick={onInstall}>
+                Εγκατάσταση
+              </Button>
+            )}
             <Button variant="outline" color="gray.0" size="xs" onClick={onLogout}>
               Αποσύνδεση
             </Button>

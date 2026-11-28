@@ -1,16 +1,23 @@
-import { Alert, NativeSelect, SimpleGrid, Textarea, TextInput } from '@mantine/core';
+import { Alert, Collapse, MultiSelect, NativeSelect, Switch, SimpleGrid, Textarea, TextInput } from '@mantine/core';
 import { useState, type SubmitEvent } from 'react';
 import { usePref } from '../data/prefs';
 import { store } from '../data/store';
 import { supabase } from '../data/supabase';
 import { useData } from '../data/useData';
 import { listValues } from '../domain/derive';
-import { dayFromISO, todayDay } from '../domain/text';
-import type { ActionRow, Company } from '../domain/types';
+import { dayFromISO, handlerParts, todayDay } from '../domain/text';
+import type { ActionRow, Company, LeadRow } from '../domain/types';
 import { CompanyFormDialog } from './CompanyFormDialog';
 
 const currentDate = () => new Date(todayDay() * 86_400_000).toISOString().slice(0, 10);
 const optionValues = (values: string[], selected: string) => [...new Set([...values, selected])].filter(Boolean);
+
+const leadFields = [
+  ['stage', 'Πορεία ενδιαφέροντος'],
+  ['sponsor', 'Χορηγία'],
+  ['cancel_reason', 'Λόγος ακύρωσης'],
+  ['hall', 'Hall'],
+] as const;
 
 export function ActionForm({
   company,
@@ -33,6 +40,8 @@ export function ActionForm({
   const [type, setType] = useState(action?.type ?? '');
   const [handler, setHandler] = useState(action ? (action.handler ?? '') : me);
   const [description, setDescription] = useState(action?.description ?? '');
+  const [updateLead, setUpdateLead] = useState(false);
+  const [leadHandlers, setLeadHandlers] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const selectedLead = company.leads.find((lead) => lead.year === Number(year));
@@ -53,7 +62,16 @@ export function ActionForm({
       setError('Επιλέξτε ημερομηνία έως και σήμερα.');
       return;
     }
-    if (!description.trim()) {
+    const form = new FormData(event.currentTarget as HTMLFormElement);
+    const updates = updateLead
+      ? Object.fromEntries(
+          [...leadFields.map(([key]) => key), 'sqm', 'handler']
+            .map((key) => [key, key === 'handler' ? leadHandlers.join(', ') : String(form.get(key) ?? '').trim()])
+            .filter(([, value]) => value !== ''),
+        )
+      : {};
+    const hasUpdates = Object.keys(updates).length > 0;
+    if (!description.trim() && (action || type || !hasUpdates)) {
       setError('Συμπληρώστε την περιγραφή της ενέργειας.');
       return;
     }
@@ -66,6 +84,27 @@ export function ActionForm({
     };
     setPending(true);
     try {
+      if (hasUpdates && lead && !action) {
+        const { data, error } = await supabase.rpc('save_action_with_lead', {
+          p_company_code: company.code,
+          p_year: lead.year,
+          p_action: fields.description ? fields : null,
+          p_updates: updates,
+        });
+        const result = data as unknown as { lead: LeadRow; action: ActionRow | null } | null;
+        if (error || !result?.lead) {
+          setError(
+            error?.code === 'PGRST202'
+              ? 'Η ενημέρωση lead από αυτή τη φόρμα χρειάζεται ενεργοποίηση στη βάση.'
+              : (error?.message ?? 'Η αποθήκευση δεν ολοκληρώθηκε.'),
+          );
+          return;
+        }
+        store.apply('leads', 'upsert', { ...result.lead });
+        if (result.action) store.apply('actions', 'upsert', { ...result.action });
+        onSaved(result.action ? 'Η ενέργεια αποθηκεύτηκε και το lead ενημερώθηκε.' : 'Το lead ενημερώθηκε.');
+        return;
+      }
       const write = action
         ? supabase.from('actions').update(fields).eq('id', action.id).eq('company_code', company.code)
         : supabase.from('actions').insert({ company_code: company.code, ...fields });
@@ -97,7 +136,11 @@ export function ActionForm({
         <NativeSelect
           label="Χρονιά lead"
           value={year}
-          onChange={(event) => setYear(event.currentTarget.value)}
+          onChange={(event) => {
+            setYear(event.currentTarget.value);
+            setUpdateLead(false);
+            setLeadHandlers([]);
+          }}
           data={[{ value: '', label: '—' }, ...validYears]}
           required={!action}
           disabled={pending || (!action && !years.length)}
@@ -134,11 +177,45 @@ export function ActionForm({
         data-autofocus
         minRows={3}
         autosize
-        required
+        required={!!action || !updateLead}
         value={description}
         onChange={(event) => setDescription(event.currentTarget.value)}
         disabled={pending}
       />
+      {!action && selectedLead && (
+        <>
+          <Switch
+            label="Ενημέρωση lead"
+            checked={updateLead}
+            onChange={(event) => setUpdateLead(event.currentTarget.checked)}
+            disabled={pending}
+          />
+          <Collapse expanded={updateLead}>
+            {updateLead && (
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                {leadFields.map(([key, label]) => (
+                  <NativeSelect
+                    key={key}
+                    name={key}
+                    label={label}
+                    data={[{ value: '', label: 'Διατήρηση τιμής' }, ...listValues(data.lists, label).filter(Boolean)]}
+                    disabled={pending}
+                  />
+                ))}
+                <TextInput label="Τ.μ." name="sqm" type="number" min={0} step="any" disabled={pending} />
+                <MultiSelect
+                  label="Χειριστές lead"
+                  placeholder="Διατήρηση τιμής"
+                  data={[...new Set(listValues(data.lists, 'Χειριστής').flatMap(handlerParts))]}
+                  value={leadHandlers}
+                  onChange={setLeadHandlers}
+                  disabled={pending}
+                />
+              </SimpleGrid>
+            )}
+          </Collapse>
+        </>
+      )}
       {error && (
         <Alert color="red" role="alert">
           {error}
