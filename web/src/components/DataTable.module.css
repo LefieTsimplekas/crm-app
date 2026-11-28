@@ -3,13 +3,14 @@
   border-radius: var(--mantine-radius-md);
 }
 .table {
+  --table-highlight-on-hover-color: var(--crm-surface);
   vertical-align: top;
 }
 .th {
   position: relative;
   padding-right: 14px;
   white-space: nowrap;
-  background: var(--mantine-color-body);
+  background: var(--crm-surface);
 }
 .sortBtn {
   display: inline-flex;

@@ -1,5 +1,5 @@
 .content {
-  background: light-dark(#f4f7f5, var(--mantine-color-dark-8));
+  --crm-paper-background: var(--mantine-color-body);
 }
 
 .header {
@@ -71,7 +71,7 @@
 }
 
 .card {
-  background: var(--mantine-color-body);
+  background: var(--mantine-color-default);
   border: 1px solid var(--mantine-color-default-border);
   border-radius: 8px;
   padding: 10px 12px;

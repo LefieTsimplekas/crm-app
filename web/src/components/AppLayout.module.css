@@ -11,8 +11,8 @@
   }
 }
 .badge {
-  background: var(--crm-header-accent);
-  color: #0d2b25;
+  background: var(--crm-coral);
+  color: var(--mantine-color-black);
   border-radius: 99px;
   padding: 1px 8px;
   font-weight: 600;
@@ -25,15 +25,15 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #9fb2ad;
+  background: var(--crm-live-off);
   flex: none;
 }
 .dot[data-live] {
-  background: #7ee2a8;
+  background: var(--crm-live-on);
   box-shadow: 0 0 0 3px rgba(126, 226, 168, 0.25);
 }
 .link {
-  color: #cfe3dc;
+  color: var(--crm-header-text-muted);
 }
 .nav {
   display: flex;
@@ -48,7 +48,7 @@
 }
 .tab {
   flex: none;
-  color: #cfe3dc;
+  color: var(--crm-header-text-muted);
   padding: 8px 14px;
   border-radius: 8px 8px 0 0;
   font-size: var(--mantine-font-size-sm);
