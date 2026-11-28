@@ -1,4 +1,5 @@
-import { Center, Loader } from '@mantine/core';
+import { Button, Center, Loader } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { useHash } from '@mantine/hooks';
 import { useEffect, useState } from 'react';
 import { LoginPage } from './auth/LoginPage';
@@ -9,6 +10,7 @@ import { store } from './data/store';
 import { supabase } from './data/supabase';
 import { useData } from './data/useData';
 import { CompanyDrawer } from './components/CompanyDrawer';
+import { LeadForm } from './components/LeadForm';
 import { CompaniesPage } from './pages/CompaniesPage';
 import { HelpPage } from './pages/HelpPage';
 import { HistoryPage } from './pages/HistoryPage';
@@ -29,7 +31,8 @@ const NAV: NavItem[] = [
 
 export function App() {
   const session = useSession();
-  const { live, derived } = useData();
+  const { live, derived, state } = useData();
+  const [creatingLead, setCreatingLead] = useState(false);
   const [selection, setSelection] = useState<{ code: number; uid: string } | null>(null);
   const [hash, setHash] = useHash();
   const page = NAV.find((n) => `#${n.id}` === hash) ?? NAV[0];
@@ -70,6 +73,7 @@ export function App() {
     await flushPrefs();
     await supabase.auth.signOut();
     setSelection(null);
+    setCreatingLead(false);
   }
 
   const selected = selection?.uid === session.user.id ? selection : null;
@@ -84,6 +88,11 @@ export function App() {
       onNavigate={(id) => setHash(`#${id}`)}
       onLogout={() => void logout()}
     >
+      {(page.id === 'tracking' || page.id === 'companies') && (
+        <Button mb="sm" disabled={state !== 'ready'} onClick={() => setCreatingLead(true)}>
+          + Νέο lead
+        </Button>
+      )}
       {page.id === 'tracking' ? (
         <TrackingPage onOpenCompany={openCompany} />
       ) : page.id === 'companies' ? (
@@ -98,6 +107,16 @@ export function App() {
         <SettingsPage />
       ) : (
         <HelpPage />
+      )}
+      {creatingLead && (
+        <LeadForm
+          onClose={() => setCreatingLead(false)}
+          onSaved={(message, code) => {
+            setCreatingLead(false);
+            if (code !== undefined) openCompany(code);
+            notifications.show({ message, color: 'green' });
+          }}
+        />
       )}
       <CompanyDrawer
         opened={selected !== null}
