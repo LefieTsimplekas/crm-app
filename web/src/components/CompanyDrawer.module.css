@@ -116,6 +116,7 @@
 }
 
 .timeline li {
+  display: flow-root;
   border-left: 3px solid var(--mantine-color-default-border);
   padding: 4px 0 10px 12px;
   font-size: 14px;
@@ -138,8 +139,11 @@
   min-width: 0;
 }
 
-.addContact {
+.drawerActions {
   margin-top: var(--mantine-spacing-xs);
+}
+
+.addContact {
   color: white;
   border-color: rgb(255 255 255 / 38%);
 }
@@ -150,4 +154,19 @@
 
 .addContact:focus-visible {
   outline-color: var(--crm-header-accent);
+}
+
+.addAction {
+  background: var(--crm-header-accent);
+  color: var(--mantine-color-black);
+}
+
+.addAction:hover {
+  background: var(--crm-header-text-muted);
+  color: var(--mantine-color-black);
+}
+
+.editAction {
+  float: inline-end;
+  margin-inline-start: var(--mantine-spacing-xs);
 }

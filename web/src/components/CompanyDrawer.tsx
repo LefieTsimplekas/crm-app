@@ -1,11 +1,17 @@
-import { Anchor, Badge, Button, Drawer } from '@mantine/core';
+import { Anchor, Badge, Button, Drawer, Group } from '@mantine/core';
 import { useState, type ReactNode } from 'react';
 import { notifications } from '@mantine/notifications';
+import { store } from '../data/store';
 import { formatDay } from '../domain/text';
-import type { Company, ContactRow } from '../domain/types';
+import type { ActionRow, Company, ContactRow } from '../domain/types';
+import { ActionForm } from './ActionForm';
 import classes from './CompanyDrawer.module.css';
 import { ContactForm } from './ContactForm';
 import { Emails } from './Emails';
+
+type Editor =
+  | { code: number; kind: 'contact'; contact?: ContactRow }
+  | { code: number; kind: 'action'; action?: ActionRow; year?: number };
 
 function Field({ label, children, full }: { label: string; children: ReactNode; full?: boolean }) {
   return (
@@ -25,11 +31,17 @@ export function CompanyDrawer({
   company?: Company;
   onClose: () => void;
 }) {
-  const [editing, setEditing] = useState<{ code: number; contact?: ContactRow } | null>(null);
+  const [editing, setEditing] = useState<Editor | null>(null);
   const activeEditor = opened && company && editing?.code === company.code ? editing : null;
   const link = company?.row.files_link;
   const leads = [...(company?.leads ?? [])].sort((a, b) => b.year - a.year);
   const actions = [...(company?.actions ?? [])].sort((a, b) => b.day - a.day || b.id - a.id);
+
+  const closeForm = () => setEditing(null);
+  function saved(message: string) {
+    closeForm();
+    notifications.show({ message, color: 'green' });
+  }
 
   return (
     <>
@@ -61,14 +73,23 @@ export function CompanyDrawer({
                 {company?.name ?? 'Καρτέλα εταιρείας'}
               </Drawer.Title>
               {company && (
-                <Button
-                  size="compact-sm"
-                  variant="outline"
-                  className={classes.addContact}
-                  onClick={() => setEditing({ code: company.code })}
-                >
-                  + Επαφή
-                </Button>
+                <Group gap="xs" className={classes.drawerActions}>
+                  <Button
+                    size="compact-sm"
+                    className={classes.addAction}
+                    onClick={() => setEditing({ code: company.code, kind: 'action' })}
+                  >
+                    + Ενέργεια
+                  </Button>
+                  <Button
+                    size="compact-sm"
+                    variant="outline"
+                    className={classes.addContact}
+                    onClick={() => setEditing({ code: company.code, kind: 'contact' })}
+                  >
+                    + Επαφή
+                  </Button>
+                </Group>
               )}
             </div>
             <Drawer.CloseButton aria-label="Κλείσιμο καρτέλας εταιρείας" />
@@ -95,7 +116,10 @@ export function CompanyDrawer({
                     </Field>
                   </dl>
                 </section>
-                <CompanyContacts company={company} onEdit={(contact) => setEditing({ code: company.code, contact })} />
+                <CompanyContacts
+                  company={company}
+                  onEdit={(contact) => setEditing({ code: company.code, kind: 'contact', contact })}
+                />
                 <section className={classes.section}>
                   <h3>Leads</h3>
                   {!leads.length && <p className={classes.muted}>Κανένα lead.</p>}
@@ -107,6 +131,14 @@ export function CompanyDrawer({
                           <span className={classes.dot} data-open={lead.open} />
                           {lead.stage || '—'}
                         </span>
+                        <Button
+                          ml="auto"
+                          variant="default"
+                          size="compact-sm"
+                          onClick={() => setEditing({ code: company.code, kind: 'action', year: lead.year })}
+                        >
+                          + Ενέργεια
+                        </Button>
                       </div>
                       <dl className={classes.grid}>
                         <Field label="Χειριστής">{lead.handler || '—'}</Field>
@@ -139,6 +171,18 @@ export function CompanyDrawer({
                     <ol className={classes.timeline}>
                       {actions.map((action) => (
                         <li key={action.id}>
+                          <Button
+                            className={classes.editAction}
+                            variant="default"
+                            size="compact-sm"
+                            aria-label={`Αλλαγή ενέργειας ${formatDay(action.day)} – ${action.type || 'Σχόλιο'} (${action.id})`}
+                            onClick={() => {
+                              const row = store.getSnapshot().data.actions.find((item) => item.id === action.id);
+                              if (row) setEditing({ code: company.code, kind: 'action', action: row });
+                            }}
+                          >
+                            Αλλαγή
+                          </Button>
                           <div className={classes.muted}>
                             {[formatDay(action.day), action.year, action.handler].filter(Boolean).join(' · ')}
                           </div>
@@ -164,15 +208,16 @@ export function CompanyDrawer({
           </Drawer.Body>
         </Drawer.Content>
       </Drawer.Root>
-      {company && activeEditor && (
-        <ContactForm
+      {company && activeEditor?.kind === 'contact' && (
+        <ContactForm company={company} contact={activeEditor.contact} onClose={closeForm} onSaved={saved} />
+      )}
+      {company && activeEditor?.kind === 'action' && (
+        <ActionForm
           company={company}
-          contact={activeEditor.contact}
-          onClose={() => setEditing(null)}
-          onSaved={(message) => {
-            setEditing(null);
-            notifications.show({ message, color: 'green' });
-          }}
+          action={activeEditor.action}
+          leadYear={activeEditor.year}
+          onClose={closeForm}
+          onSaved={saved}
         />
       )}
     </>
