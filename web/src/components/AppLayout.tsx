@@ -1,6 +1,7 @@
 import { Anchor, Box, Button, Group, Text, Title, UnstyledButton } from '@mantine/core';
 import type { ReactNode } from 'react';
 import classes from './AppLayout.module.css';
+import { ExportExcelButton } from './ExportExcelButton';
 
 export interface NavItem {
   id: string;
@@ -44,6 +45,7 @@ export function AppLayout({ email, live, items, current, onNavigate, onLogout, c
             <Anchor href="../" className={classes.link} size="sm">
               Παλιά έκδοση
             </Anchor>
+            <ExportExcelButton />
             <Button variant="outline" color="gray.0" size="xs" onClick={onLogout}>
               Αποσύνδεση
             </Button>
