@@ -22,7 +22,7 @@ export function ContactForm({
   const [phone, setPhone] = useState(contact?.phone ?? '');
   const [email, setEmail] = useState(contact?.email ?? '');
   const [notes, setNotes] = useState(contact?.notes ?? '');
-  const [primary, setPrimary] = useState(contact?.is_primary ?? company.contacts.length === 0);
+  const [primary, setPrimary] = useState((contact?.is_primary ?? company.contacts.length === 0) ? 'yes' : 'no');
   const [pending, setPending] = useState(false);
   const [nameError, setNameError] = useState('');
   const [error, setError] = useState('');
@@ -59,8 +59,26 @@ export function ContactForm({
         phone: phone.trim() || null,
         email: email.trim() || null,
         notes: notes.trim() || null,
-        is_primary: primary,
+        is_primary: primary !== 'no',
       };
+      if (primary === 'replace') {
+        const { data, error } = await supabase.rpc('save_sole_primary_contact', {
+          p_company_code: company.code,
+          p_contact_id: contact?.id ?? null,
+          p_fields: fields,
+        });
+        if (error || data !== true) {
+          setError(
+            error?.code === 'PGRST202'
+              ? 'Η αντικατάσταση κύριας επαφής χρειάζεται ενεργοποίηση στο Supabase. Ενημερώστε τον διαχειριστή.'
+              : (error?.message ?? 'Η αλλαγή κύριας επαφής δεν αποθηκεύτηκε.'),
+          );
+          return;
+        }
+        await store.load();
+        onSaved('Η επαφή ορίστηκε ως η μόνη κύρια επαφή της εταιρείας.');
+        return;
+      }
       const query = contact
         ? supabase.from('contacts').update(fields).eq('id', contact.id).eq('company_code', company.code)
         : supabase.from('contacts').insert({ company_code: company.code, ...fields });
@@ -127,10 +145,11 @@ export function ContactForm({
           label="Κύρια επαφή"
           data={[
             { value: 'no', label: 'Όχι' },
-            { value: 'yes', label: 'Ναι' },
+            { value: 'yes', label: 'Ναι – επιπλέον κύρια' },
+            { value: 'replace', label: 'Ναι – αντί της παλιάς' },
           ]}
-          value={primary ? 'yes' : 'no'}
-          onChange={(event) => setPrimary(event.currentTarget.value === 'yes')}
+          value={primary}
+          onChange={(event) => setPrimary(event.currentTarget.value)}
           disabled={pending}
         />
       </SimpleGrid>
