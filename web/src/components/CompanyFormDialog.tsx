@@ -6,6 +6,7 @@ export function CompanyFormDialog({
   title,
   submitLabel,
   pending,
+  danger = false,
   onClose,
   onSubmit,
   children,
@@ -13,6 +14,7 @@ export function CompanyFormDialog({
   title: string;
   submitLabel: string;
   pending: boolean;
+  danger?: boolean;
   onClose: () => void;
   onSubmit: SubmitEventHandler<HTMLFormElement>;
   children: ReactNode;
@@ -39,10 +41,16 @@ export function CompanyFormDialog({
           {children}
         </Stack>
         <Group justify="flex-end" gap="xs" className={classes.footer}>
-          <Button type="button" variant="default" onClick={onClose} disabled={pending}>
+          <Button
+            type="button"
+            variant="default"
+            onClick={onClose}
+            disabled={pending}
+            data-autofocus={danger || undefined}
+          >
             Άκυρο
           </Button>
-          <Button type="submit" loading={pending}>
+          <Button type="submit" loading={pending} color={danger ? 'red' : undefined}>
             {submitLabel}
           </Button>
         </Group>
