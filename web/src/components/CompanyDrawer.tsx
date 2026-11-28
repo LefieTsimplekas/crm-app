@@ -112,6 +112,20 @@ export function CompanyDrawer({
                   >
                     Μετονομασία
                   </Button>
+                  <Button
+                    size="compact-sm"
+                    variant="outline"
+                    className={classes.outlineAction}
+                    onClick={() =>
+                      setEditing({
+                        code: company.code,
+                        kind: 'remove',
+                        item: { table: 'companies', id: company.code, label: company.name },
+                      })
+                    }
+                  >
+                    Διαγραφή
+                  </Button>
                 </Group>
               )}
             </div>
@@ -188,6 +202,20 @@ export function CompanyDrawer({
                           onClick={() => setEditing({ code: company.code, kind: 'lead', lead: lead.row })}
                         >
                           Επεξεργασία
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="compact-sm"
+                          aria-label={`Διαγραφή lead ${lead.year}`}
+                          onClick={() =>
+                            setEditing({
+                              code: company.code,
+                              kind: 'remove',
+                              item: { table: 'leads', id: lead.id, label: company.name, year: lead.year },
+                            })
+                          }
+                        >
+                          Διαγραφή
                         </Button>
                       </div>
                       <dl className={classes.grid}>
@@ -284,7 +312,10 @@ export function CompanyDrawer({
           companyCode={company.code}
           item={activeEditor.item}
           onClose={closeForm}
-          onSaved={saved}
+          onSaved={(message) => {
+            saved(message);
+            if (activeEditor.item.table === 'companies') onClose();
+          }}
         />
       )}
       {company && activeEditor?.kind === 'contact' && (
