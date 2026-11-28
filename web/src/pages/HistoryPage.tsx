@@ -1,4 +1,4 @@
-import { Anchor, Group, Select, Stack, Text, TextInput } from '@mantine/core';
+import { Anchor, Select, SimpleGrid, Stack, Text, TextInput } from '@mantine/core';
 import { useState } from 'react';
 import { DataTable, type Column } from '../components/DataTable';
 import { Empty, ErrorView, Loading } from '../components/StateViews';
@@ -91,7 +91,7 @@ export function HistoryPage({ onOpenCompany }: { onOpenCompany: (code: number) =
 
   return (
     <Stack gap="md">
-      <Group align="end">
+      <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }} spacing="sm">
         <Select
           label="Χρονιά lead"
           placeholder="Όλες"
@@ -122,9 +122,8 @@ export function HistoryPage({ onOpenCompany }: { onOpenCompany: (code: number) =
           placeholder="εταιρεία, περιγραφή, ημερομηνία…"
           value={search}
           onChange={(event) => setSearch(event.currentTarget.value)}
-          style={{ flex: 1, minWidth: 200 }}
         />
-      </Group>
+      </SimpleGrid>
       <Text size="sm" c="dimmed" aria-live="polite">
         {actions.length} ενέργειες
         {actions.length > MAX_VISIBLE_ACTIONS ? ` · Εμφανίζονται οι ${MAX_VISIBLE_ACTIONS} πιο πρόσφατες` : ''}
