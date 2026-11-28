@@ -2,9 +2,11 @@ import { Anchor, Badge, Button, Drawer, Group } from '@mantine/core';
 import { useState, type ReactNode } from 'react';
 import { notifications } from '@mantine/notifications';
 import { store } from '../data/store';
+import { countryOf } from '../domain/countries';
 import { formatDay } from '../domain/text';
 import type { ActionRow, Company, ContactRow, LeadRow } from '../domain/types';
 import { ActionForm } from './ActionForm';
+import { CompanyDetailsForm } from './CompanyDetailsForm';
 import classes from './CompanyDrawer.module.css';
 import { ContactForm } from './ContactForm';
 import { Emails } from './Emails';
@@ -13,7 +15,8 @@ import { LeadForm } from './LeadForm';
 type Editor =
   | { code: number; kind: 'contact'; contact?: ContactRow }
   | { code: number; kind: 'action'; action?: ActionRow; year?: number }
-  | { code: number; kind: 'lead'; lead?: LeadRow };
+  | { code: number; kind: 'lead'; lead?: LeadRow }
+  | { code: number; kind: 'company' | 'rename' };
 
 function Field({ label, children, full }: { label: string; children: ReactNode; full?: boolean }) {
   return (
@@ -99,6 +102,14 @@ export function CompanyDrawer({
                   >
                     + Επαφή
                   </Button>
+                  <Button
+                    size="compact-sm"
+                    variant="outline"
+                    className={classes.outlineAction}
+                    onClick={() => setEditing({ code: company.code, kind: 'rename' })}
+                  >
+                    Μετονομασία
+                  </Button>
                 </Group>
               )}
             </div>
@@ -108,10 +119,22 @@ export function CompanyDrawer({
             {company ? (
               <>
                 <section className={classes.section}>
-                  <h3>Στοιχεία</h3>
+                  <Group justify="space-between" mb="xs">
+                    <h3 className={classes.detailsHeading}>Στοιχεία</h3>
+                    <Button
+                      size="compact-sm"
+                      variant="default"
+                      aria-label="Επεξεργασία στοιχείων εταιρείας"
+                      onClick={() => setEditing({ code: company.code, kind: 'company' })}
+                    >
+                      Επεξεργασία
+                    </Button>
+                  </Group>
                   <dl className={classes.grid}>
                     <Field label="Κλάδος">{company.row.sector || '—'}</Field>
-                    <Field label="Χώρα">{company.row.country || '—'}</Field>
+                    <Field label="Χώρα">
+                      {(countryOf(company.row.country ?? '')?.label ?? company.row.country) || '—'}
+                    </Field>
                     <Field label="FG/RET">{company.row.fgret || '—'}</Field>
                     <Field label="Tellody">{company.row.tellody || '—'}</Field>
                     <Field label="Αναγνωριστικό List">{company.row.list_id || '—'}</Field>
@@ -240,6 +263,14 @@ export function CompanyDrawer({
       )}
       {company && activeEditor?.kind === 'lead' && (
         <LeadForm company={company} lead={activeEditor.lead} onClose={closeForm} onSaved={saved} />
+      )}
+      {company && (activeEditor?.kind === 'company' || activeEditor?.kind === 'rename') && (
+        <CompanyDetailsForm
+          company={company.row}
+          rename={activeEditor.kind === 'rename'}
+          onClose={closeForm}
+          onSaved={saved}
+        />
       )}
     </>
   );
