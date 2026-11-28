@@ -98,7 +98,7 @@ export function ContactForm({
       closeOnClickOutside={false}
       closeOnEscape={!pending}
       closeButtonProps={{ 'aria-label': 'Κλείσιμο φόρμας επαφής', disabled: pending }}
-      classNames={{ header: classes.header, title: classes.title, body: classes.body }}
+      classNames={{ content: classes.content, header: classes.header, title: classes.title, body: classes.body }}
     >
       <form onSubmit={(event) => void save(event)}>
         <Stack gap="xs" className={classes.fields}>

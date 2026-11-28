@@ -1,0 +1,19 @@
+.paper {
+  background-color: var(--crm-paper-background, var(--mantine-color-default));
+}
+
+:global([data-mantine-color-scheme]) .input[data-variant='default'] {
+  --input-bg: var(--mantine-color-default);
+  --input-bd-focus: var(--crm-focus);
+}
+
+:global([data-mantine-color-scheme])
+  .input[data-variant='default']:not([data-error], [data-success], :focus, :focus-within) {
+  --input-bd: var(--mantine-color-default-border);
+}
+
+.focus:focus-visible,
+.input:focus-visible {
+  outline: 2px solid var(--crm-focus);
+  outline-offset: 2px;
+}
