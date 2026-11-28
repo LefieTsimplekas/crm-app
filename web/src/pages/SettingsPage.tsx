@@ -5,9 +5,11 @@ import { setPref, usePref } from '../data/prefs';
 import { store } from '../data/store';
 import { useData } from '../data/useData';
 import { listValues } from '../domain/derive';
+import { CountryCleanup } from './settings/CountryCleanup';
 import { DatabaseUsage } from './settings/DatabaseUsage';
 import { OptionList } from './settings/OptionList';
 import { PasswordSettings } from './settings/PasswordSettings';
+import { TrafficUsage } from './settings/TrafficUsage';
 
 function PersonalSettings({ handlers }: { handlers: string[] }) {
   const [me] = usePref('me', '');
@@ -102,6 +104,8 @@ export function SettingsPage() {
         </Stack>
         <DatabaseUsage />
         <PasswordSettings />
+        <CountryCleanup />
+        <TrafficUsage />
       </SimpleGrid>
       <Stack gap="sm">
         <Title order={2} size="h4">
