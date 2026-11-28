@@ -46,6 +46,10 @@
   margin: 0 0 8px;
 }
 
+.section .detailsHeading {
+  margin: 0;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));

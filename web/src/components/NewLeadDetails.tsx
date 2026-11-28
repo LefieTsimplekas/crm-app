@@ -2,6 +2,7 @@ import { NativeSelect, SimpleGrid, Text, Textarea, TextInput } from '@mantine/co
 import { listValues } from '../domain/derive';
 import { todayDay } from '../domain/text';
 import type { Dataset } from '../domain/types';
+import { CountrySelect } from './CountrySelect';
 
 export function leadDate() {
   return new Date(todayDay() * 86_400_000).toISOString().slice(0, 10);
@@ -18,7 +19,7 @@ export function NewCompanyFields({ lists, disabled }: { lists: Dataset['lists'];
     <>
       <TextInput name="company_name" label="Επωνυμία εταιρείας" required disabled={disabled} />
       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-        <TextInput name="country" label="Χώρα" disabled={disabled} />
+        <CountrySelect disabled={disabled} />
         {companyLists.map(([name, label]) => (
           <NativeSelect
             key={name}
