@@ -1,8 +1,10 @@
-import { Anchor, Badge, Drawer } from '@mantine/core';
-import type { ReactNode } from 'react';
+import { Anchor, Badge, Button, Drawer, Group } from '@mantine/core';
+import { useState, type ReactNode } from 'react';
+import { notifications } from '@mantine/notifications';
 import { formatDay } from '../domain/text';
-import type { Company } from '../domain/types';
+import type { Company, ContactRow } from '../domain/types';
 import classes from './CompanyDrawer.module.css';
+import { ContactForm } from './ContactForm';
 import { Emails } from './Emails';
 
 function Field({ label, children, full }: { label: string; children: ReactNode; full?: boolean }) {
@@ -69,36 +71,7 @@ export function CompanyDrawer({
               </Field>
             </dl>
           </section>
-          <section className={classes.section}>
-            <h3>Επαφές ({company.contacts.length})</h3>
-            {!company.contacts.length && <p className={classes.muted}>Καμία επαφή.</p>}
-            {company.contacts.map((contact) => (
-              <article className={classes.card} key={contact.id}>
-                <div className={classes.cardHeader}>
-                  <strong>{contact.name}</strong>
-                  {contact.is_primary && (
-                    <Badge variant="light" size="sm">
-                      Κύρια
-                    </Badge>
-                  )}
-                </div>
-                <dl className={classes.grid}>
-                  {contact.role && <Field label="Θέση">{contact.role}</Field>}
-                  {contact.phone && <Field label="Τηλέφωνο">{contact.phone}</Field>}
-                  {contact.email && (
-                    <Field label="Email">
-                      <Emails value={contact.email} />
-                    </Field>
-                  )}
-                  {contact.notes && (
-                    <Field label="Σημειώσεις" full>
-                      {contact.notes}
-                    </Field>
-                  )}
-                </dl>
-              </article>
-            ))}
-          </section>
+          {opened && <CompanyContacts key={company.code} company={company} />}
           <section className={classes.section}>
             <h3>Leads</h3>
             {!leads.length && <p className={classes.muted}>Κανένα lead.</p>}
@@ -165,5 +138,73 @@ export function CompanyDrawer({
         <p className={classes.muted}>Η εταιρεία δεν είναι διαθέσιμη.</p>
       )}
     </Drawer>
+  );
+}
+
+function CompanyContacts({ company }: { company: Company }) {
+  const [editing, setEditing] = useState<ContactRow | 'new' | null>(null);
+
+  function saved(message: string) {
+    setEditing(null);
+    notifications.show({ message, color: 'green' });
+  }
+
+  return (
+    <section className={classes.section}>
+      <Group justify="space-between" mb="xs">
+        <h3 style={{ margin: 0 }}>Επαφές ({company.contacts.length})</h3>
+        <Button size="compact-sm" onClick={() => setEditing('new')} disabled={editing !== null}>
+          + Επαφή
+        </Button>
+      </Group>
+      {editing === 'new' && <ContactForm company={company} onClose={() => setEditing(null)} onSaved={saved} />}
+      {!company.contacts.length && <p className={classes.muted}>Καμία επαφή.</p>}
+      {company.contacts.map((contact) =>
+        editing && editing !== 'new' && editing.id === contact.id ? (
+          <ContactForm
+            key={contact.id}
+            company={company}
+            contact={editing}
+            onClose={() => setEditing(null)}
+            onSaved={saved}
+          />
+        ) : (
+          <article className={classes.card} key={contact.id}>
+            <div className={classes.cardHeader}>
+              <strong>{contact.name}</strong>
+              {contact.is_primary && (
+                <Badge variant="light" size="sm">
+                  Κύρια
+                </Badge>
+              )}
+              <Button
+                ml="auto"
+                variant="default"
+                size="compact-sm"
+                disabled={editing !== null}
+                aria-label={`Επεξεργασία επαφής ${contact.name}`}
+                onClick={() => setEditing(contact)}
+              >
+                Επεξεργασία
+              </Button>
+            </div>
+            <dl className={classes.grid}>
+              {contact.role && <Field label="Θέση">{contact.role}</Field>}
+              {contact.phone && <Field label="Τηλέφωνο">{contact.phone}</Field>}
+              {contact.email && (
+                <Field label="Email">
+                  <Emails value={contact.email} />
+                </Field>
+              )}
+              {contact.notes && (
+                <Field label="Σημειώσεις" full>
+                  {contact.notes}
+                </Field>
+              )}
+            </dl>
+          </article>
+        ),
+      )}
+    </section>
   );
 }
