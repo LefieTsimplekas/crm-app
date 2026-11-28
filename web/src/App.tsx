@@ -2,15 +2,18 @@ import { Button, Center, Group, Loader } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useHash } from '@mantine/hooks';
 import { useEffect, useState } from 'react';
+import { useInstallPrompt } from './components/useInstallPrompt';
 import { LoginPage } from './auth/LoginPage';
 import { useSession } from './auth/useSession';
 import { AppLayout, type NavItem } from './components/AppLayout';
 import { flushPrefs, loadPrefs } from './data/prefs';
 import { store } from './data/store';
-import { supabase } from './data/supabase';
+import { flushTraffic, supabase, trackTrafficFor } from './data/supabase';
 import { useData } from './data/useData';
 import { CompanyDrawer } from './components/CompanyDrawer';
 import { CreateCompanyItem, type CompanyItemRequest } from './components/CreateCompanyItem';
+import { ExcelImportDialog } from './components/ExcelImportDialog';
+import { OfferForm } from './components/OfferForm';
 import { LeadForm } from './components/LeadForm';
 import { CompaniesPage } from './pages/CompaniesPage';
 import { HelpPage } from './pages/HelpPage';
@@ -32,7 +35,9 @@ const NAV: NavItem[] = [
 
 export function App() {
   const session = useSession();
+  const promptInstall = useInstallPrompt();
   const { live, derived, state } = useData();
+  const [documentTool, setDocumentTool] = useState<'offer' | 'import' | null>(null);
   const [creatingLead, setCreatingLead] = useState(false);
   const [creatingItem, setCreatingItem] = useState<CompanyItemRequest | null>(null);
   const [selection, setSelection] = useState<{ code: number; uid: string } | null>(null);
@@ -42,7 +47,9 @@ export function App() {
 
   // σύνδεση: ρυθμίσεις, δεδομένα, ζωντανή ενημέρωση
   useEffect(() => {
+    trackTrafficFor(uid);
     if (!uid) return;
+    const usageTimer = window.setInterval(() => void flushTraffic(), 60_000);
     void loadPrefs(uid);
     void store.load();
     store.startLive();
@@ -51,12 +58,14 @@ export function App() {
       if (document.hidden) {
         hiddenAt = Date.now();
         void flushPrefs();
+        void flushTraffic();
       } else if (hiddenAt && Date.now() - hiddenAt > 5 * 60_000) void store.load();
     };
     const onOnline = () => void store.load();
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('online', onOnline);
     return () => {
+      window.clearInterval(usageTimer);
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('online', onOnline);
       void store.stop();
@@ -72,10 +81,11 @@ export function App() {
   if (!session) return <LoginPage />;
 
   async function logout() {
-    await flushPrefs();
+    await Promise.all([flushPrefs(), flushTraffic()]);
     await supabase.auth.signOut();
     setSelection(null);
     setCreatingLead(false);
+    setDocumentTool(null);
     setCreatingItem(null);
   }
 
@@ -90,6 +100,7 @@ export function App() {
       current={page.id}
       onNavigate={(id) => setHash(`#${id}`)}
       onLogout={() => void logout()}
+      onInstall={promptInstall}
     >
       {(page.id === 'tracking' || page.id === 'companies') && (
         <Group mb="sm" gap="xs">
@@ -101,6 +112,12 @@ export function App() {
           </Button>
           <Button variant="default" disabled={state !== 'ready'} onClick={() => setCreatingItem({ kind: 'contact' })}>
             + Επαφή
+          </Button>
+          <Button variant="default" disabled={state !== 'ready'} onClick={() => setDocumentTool('import')}>
+            Εισαγωγή Excel / CSV
+          </Button>
+          <Button variant="default" onClick={() => setDocumentTool('offer')}>
+            Προσφορά
           </Button>
         </Group>
       )}
@@ -122,6 +139,8 @@ export function App() {
       ) : (
         <HelpPage />
       )}
+      {documentTool === 'offer' && <OfferForm seed={{}} onClose={() => setDocumentTool(null)} />}
+      {documentTool === 'import' && <ExcelImportDialog onClose={() => setDocumentTool(null)} />}
       {creatingLead && (
         <LeadForm
           onClose={() => setCreatingLead(false)}

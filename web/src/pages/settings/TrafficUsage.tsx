@@ -1,6 +1,6 @@
 import { Paper, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useState } from 'react';
-import { supabase } from '../../data/supabase';
+import { flushTraffic, supabase } from '../../data/supabase';
 
 const formatter = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 2 });
 const formatBytes = (bytes: number) =>
@@ -24,6 +24,7 @@ export function TrafficUsage() {
       let total = 0;
       let today = 0;
       try {
+        await flushTraffic();
         const pageSize = 1000;
         for (let start = 0; active; start += pageSize) {
           const { data, error } = await supabase
@@ -93,7 +94,8 @@ export function TrafficUsage() {
               </Text>
             )}
             <Text size="xs" c="dimmed">
-              Η μέτρηση αφορά τις εγγραφές του CRM. Τα επίσημα όρια και η συνολική χρήση εμφανίζονται στο Supabase.
+              Η μέτρηση εκτιμά τα δεδομένα που κατέβασε το CRM. Τα επίσημα όρια και η συνολική χρήση εμφανίζονται στο
+              Supabase.
             </Text>
           </>
         )}

@@ -10,12 +10,14 @@ import { CompanyDetailsForm } from './CompanyDetailsForm';
 import classes from './CompanyDrawer.module.css';
 import { ContactForm } from './ContactForm';
 import { Emails } from './Emails';
+import { OfferForm } from './OfferForm';
 import { LeadForm } from './LeadForm';
 import { RemoveCompanyItemDialog, type CompanyItemToRemove } from './RemoveCompanyItemDialog';
 
 type Editor =
   | { code: number; kind: 'contact'; contact?: ContactRow }
   | { code: number; kind: 'action'; action?: ActionRow; year?: number }
+  | { code: number; kind: 'offer'; lead: LeadRow }
   | { code: number; kind: 'lead'; lead?: LeadRow }
   | { code: number; kind: 'company' | 'rename' }
   | { code: number; kind: 'remove'; item: CompanyItemToRemove };
@@ -197,6 +199,14 @@ export function CompanyDrawer({
                         </Button>
                         <Button
                           variant="default"
+                          size="compact-xs"
+                          aria-label={`Προσφορά lead ${lead.year}`}
+                          onClick={() => setEditing({ code: company.code, kind: 'offer', lead: lead.row })}
+                        >
+                          Προσφορά
+                        </Button>
+                        <Button
+                          variant="default"
                           size="compact-sm"
                           aria-label={`Επεξεργασία lead ${lead.year}`}
                           onClick={() => setEditing({ code: company.code, kind: 'lead', lead: lead.row })}
@@ -328,6 +338,17 @@ export function CompanyDrawer({
           leadYear={activeEditor.year}
           onClose={closeForm}
           onSaved={saved}
+        />
+      )}
+      {company && activeEditor?.kind === 'offer' && (
+        <OfferForm
+          seed={{
+            company: company.name,
+            hall: activeEditor.lead.hall ?? '',
+            stand: activeEditor.lead.stand ?? '',
+            sqm: activeEditor.lead.sqm ?? '',
+          }}
+          onClose={closeForm}
         />
       )}
       {company && activeEditor?.kind === 'lead' && (

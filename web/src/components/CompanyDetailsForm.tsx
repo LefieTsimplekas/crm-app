@@ -1,5 +1,6 @@
 import { Alert, NativeSelect, SimpleGrid, TextInput } from '@mantine/core';
 import { useState, type SubmitEvent } from 'react';
+import { sectorCompany } from '../data/sectorSuggestions';
 import { store } from '../data/store';
 import { supabase } from '../data/supabase';
 import { useData } from '../data/useData';
@@ -7,6 +8,7 @@ import { listValues } from '../domain/derive';
 import type { CompanyRow } from '../domain/types';
 import { CompanyFormDialog } from './CompanyFormDialog';
 import { CountrySelect } from './CountrySelect';
+import { SectorSuggestionButton } from './SectorSuggestionButton';
 
 const selectFields = [
   ['sector', 'Κλάδος'],
@@ -26,6 +28,7 @@ export function CompanyDetailsForm({
   onSaved: (message: string) => void;
 }) {
   const { data } = useData();
+  const [sector, setSector] = useState(company.sector ?? '');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
 
@@ -107,7 +110,7 @@ export function CompanyDetailsForm({
         <>
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
             {selectFields.map(([key, label]) => {
-              const value = company[key] ?? '';
+              const value = (key === 'sector' ? sector : company[key]) ?? '';
               return (
                 <NativeSelect
                   key={key}
@@ -117,7 +120,12 @@ export function CompanyDetailsForm({
                     { value: '', label: '—' },
                     ...new Set([...listValues(data.lists, label), value].filter(Boolean)),
                   ]}
-                  defaultValue={value}
+                  {...(key === 'sector'
+                    ? {
+                        value,
+                        onChange: (event: React.ChangeEvent<HTMLSelectElement>) => setSector(event.currentTarget.value),
+                      }
+                    : { defaultValue: value })}
                   data-autofocus={key === 'sector' ? true : undefined}
                   disabled={pending}
                 />
@@ -131,6 +139,18 @@ export function CompanyDetailsForm({
               disabled={pending}
             />
           </SimpleGrid>
+          <SectorSuggestionButton
+            disabled={pending}
+            sectors={listValues(data.lists, 'Κλάδος')}
+            request={(form) => {
+              const current = store.getSnapshot().derived.companies.get(company.code);
+              const country = form ? String(new FormData(form).get('country') ?? '') : (company.country ?? '');
+              return current
+                ? { ...sectorCompany(current), country }
+                : { code: company.code, name: company.name, country, domain: '' };
+            }}
+            onChoose={setSector}
+          />
           <TextInput
             label="Σύνδεσμος αρχείων"
             name="files_link"

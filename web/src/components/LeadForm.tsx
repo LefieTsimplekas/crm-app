@@ -197,7 +197,15 @@ export function LeadForm({
             disabled={pending}
           />
           {companyMode === 'new' ? (
-            <NewCompanyFields lists={data.lists} disabled={pending} />
+            <NewCompanyFields
+              lists={data.lists}
+              companies={derived.companies}
+              disabled={pending}
+              onChoose={(code) => {
+                setCompanyCode(String(code));
+                setCompanyMode('existing');
+              }}
+            />
           ) : (
             <Select
               label="Εταιρεία"
