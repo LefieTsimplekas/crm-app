@@ -1,0 +1,22 @@
+.header {
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.title {
+  font-family: var(--mantine-font-family-headings);
+  font-size: var(--mantine-font-size-lg);
+  font-weight: 700;
+}
+
+.body {
+  padding: 0;
+}
+
+.fields,
+.footer {
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+}
+
+.footer {
+  border-top: 1px solid var(--mantine-color-default-border);
+}

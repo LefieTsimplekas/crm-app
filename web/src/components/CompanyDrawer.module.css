@@ -133,3 +133,21 @@
     font-size: 20px;
   }
 }
+
+.heading {
+  min-width: 0;
+}
+
+.addContact {
+  margin-top: var(--mantine-spacing-xs);
+  color: white;
+  border-color: rgb(255 255 255 / 38%);
+}
+
+.addContact:hover {
+  background: rgb(255 255 255 / 16%);
+}
+
+.addContact:focus-visible {
+  outline-color: var(--crm-header-accent);
+}
