@@ -1,4 +1,4 @@
-import { Button, Center, Loader } from '@mantine/core';
+import { Button, Center, Group, Loader } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useHash } from '@mantine/hooks';
 import { useEffect, useState } from 'react';
@@ -10,6 +10,7 @@ import { store } from './data/store';
 import { supabase } from './data/supabase';
 import { useData } from './data/useData';
 import { CompanyDrawer } from './components/CompanyDrawer';
+import { CreateCompanyItem, type CompanyItemRequest } from './components/CreateCompanyItem';
 import { LeadForm } from './components/LeadForm';
 import { CompaniesPage } from './pages/CompaniesPage';
 import { HelpPage } from './pages/HelpPage';
@@ -33,6 +34,7 @@ export function App() {
   const session = useSession();
   const { live, derived, state } = useData();
   const [creatingLead, setCreatingLead] = useState(false);
+  const [creatingItem, setCreatingItem] = useState<CompanyItemRequest | null>(null);
   const [selection, setSelection] = useState<{ code: number; uid: string } | null>(null);
   const [hash, setHash] = useHash();
   const page = NAV.find((n) => `#${n.id}` === hash) ?? NAV[0];
@@ -74,6 +76,7 @@ export function App() {
     await supabase.auth.signOut();
     setSelection(null);
     setCreatingLead(false);
+    setCreatingItem(null);
   }
 
   const selected = selection?.uid === session.user.id ? selection : null;
@@ -89,12 +92,23 @@ export function App() {
       onLogout={() => void logout()}
     >
       {(page.id === 'tracking' || page.id === 'companies') && (
-        <Button mb="sm" disabled={state !== 'ready'} onClick={() => setCreatingLead(true)}>
-          + Νέο lead
-        </Button>
+        <Group mb="sm" gap="xs">
+          <Button disabled={state !== 'ready'} onClick={() => setCreatingLead(true)}>
+            + Νέο lead
+          </Button>
+          <Button variant="default" disabled={state !== 'ready'} onClick={() => setCreatingItem({ kind: 'action' })}>
+            + Ενέργεια / σχόλιο
+          </Button>
+          <Button variant="default" disabled={state !== 'ready'} onClick={() => setCreatingItem({ kind: 'contact' })}>
+            + Επαφή
+          </Button>
+        </Group>
       )}
       {page.id === 'tracking' ? (
-        <TrackingPage onOpenCompany={openCompany} />
+        <TrackingPage
+          onOpenCompany={openCompany}
+          onQuickAction={(companyCode, year) => setCreatingItem({ kind: 'action', companyCode, year })}
+        />
       ) : page.id === 'companies' ? (
         <CompaniesPage onOpen={openCompany} />
       ) : page.id === 'history' ? (
@@ -114,6 +128,16 @@ export function App() {
           onSaved={(message, code) => {
             setCreatingLead(false);
             if (code !== undefined) openCompany(code);
+            notifications.show({ message, color: 'green' });
+          }}
+        />
+      )}
+      {creatingItem && (
+        <CreateCompanyItem
+          request={creatingItem}
+          onClose={() => setCreatingItem(null)}
+          onSaved={(message) => {
+            setCreatingItem(null);
             notifications.show({ message, color: 'green' });
           }}
         />

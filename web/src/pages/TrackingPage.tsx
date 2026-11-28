@@ -42,7 +42,13 @@ function Kpi({ value, label, tone }: { value: number; label: string; tone?: 'red
   );
 }
 
-export function TrackingPage({ onOpenCompany }: { onOpenCompany: (code: number) => void }) {
+export function TrackingPage({
+  onOpenCompany,
+  onQuickAction,
+}: {
+  onOpenCompany: (code: number) => void;
+  onQuickAction: (code: number, year: number) => void;
+}) {
   const { state, error, data, derived } = useData();
   const [cols, setCols] = usePref('cols', DEFAULT_COLUMNS);
   const [prefYear, setYear] = usePref('year', 0);
@@ -211,6 +217,20 @@ export function TrackingPage({ onOpenCompany }: { onOpenCompany: (code: number) 
           columns={columns}
           rows={rows}
           rowKey={(r) => r.lead.id}
+          leading={{
+            label: 'Νέα ενέργεια',
+            render: ({ lead }) =>
+              lead.company && (
+                <Button
+                  variant="default"
+                  size="compact-xs"
+                  aria-label={`Νέα ενέργεια για ${lead.companyName}, ${lead.year}`}
+                  onClick={() => onQuickAction(lead.code, lead.year)}
+                >
+                  + Ενέργεια
+                </Button>
+              ),
+          }}
           rowAction={(r) => (r.lead.company ? () => onOpenCompany(r.lead.code) : undefined)}
           rowStyle={(r) => (r.lead.open && rowBg[r.signal] ? { background: rowBg[r.signal] } : undefined)}
         />
