@@ -10,21 +10,21 @@ import { supabase } from './data/supabase';
 import { useData } from './data/useData';
 import { CompanyDrawer } from './components/CompanyDrawer';
 import { CompaniesPage } from './pages/CompaniesPage';
-import { ComingSoon } from './pages/ComingSoon';
+import { HelpPage } from './pages/HelpPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { ReportPage } from './pages/ReportPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SummaryPage } from './pages/SummaryPage';
 import { TrackingPage } from './pages/TrackingPage';
 
-const NAV: (NavItem & { phase?: number })[] = [
+const NAV: NavItem[] = [
   { id: 'tracking', label: 'Παρακολούθηση' },
   { id: 'companies', label: 'Εταιρείες' },
   { id: 'history', label: 'Ενέργειες' },
   { id: 'summary', label: 'Σύνοψη' },
   { id: 'report', label: 'Αναφορά' },
   { id: 'settings', label: 'Ρυθμίσεις' },
-  { id: 'help', label: 'Οδηγίες', phase: 4 },
+  { id: 'help', label: 'Οδηγίες' },
 ];
 
 export function App() {
@@ -97,7 +97,7 @@ export function App() {
       ) : page.id === 'settings' ? (
         <SettingsPage />
       ) : (
-        <ComingSoon title={page.label} phase={page.phase ?? 2} />
+        <HelpPage />
       )}
       <CompanyDrawer
         opened={selected !== null}
