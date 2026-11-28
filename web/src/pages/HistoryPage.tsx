@@ -108,14 +108,7 @@ export function HistoryPage({ onOpenCompany }: { onOpenCompany: (code: number) =
           onChange={setHandler}
           clearable
         />
-        <Select
-          label="Τύπος"
-          placeholder="Όλοι"
-          data={[...new Set(types)]}
-          value={type}
-          onChange={setType}
-          clearable
-        />
+        <Select label="Τύπος" placeholder="Όλοι" data={[...new Set(types)]} value={type} onChange={setType} clearable />
         <TextInput
           label="Αναζήτηση"
           type="search"
