@@ -1,0 +1,38 @@
+@media print {
+  :global(#root):has(.report) > header,
+  .controls {
+    display: none !important;
+  }
+
+  :global(#root):has(.report) > main {
+    padding: 0 !important;
+  }
+
+  .report :global(.mantine-ScrollArea-root),
+  .report :global(.mantine-ScrollArea-viewport) {
+    overflow: visible !important;
+  }
+
+  .report table {
+    min-width: 0 !important;
+    width: 100% !important;
+    table-layout: fixed;
+  }
+
+  .report table :is(th, td) {
+    position: static;
+    min-width: 0 !important;
+    width: auto !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+
+  .report table tr,
+  .card {
+    break-inside: avoid;
+  }
+
+  .report :is(h2, h3) {
+    break-after: avoid;
+  }
+}

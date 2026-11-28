@@ -12,6 +12,7 @@ import { CompanyDrawer } from './components/CompanyDrawer';
 import { CompaniesPage } from './pages/CompaniesPage';
 import { ComingSoon } from './pages/ComingSoon';
 import { HistoryPage } from './pages/HistoryPage';
+import { ReportPage } from './pages/ReportPage';
 import { SummaryPage } from './pages/SummaryPage';
 import { TrackingPage } from './pages/TrackingPage';
 
@@ -20,7 +21,7 @@ const NAV: (NavItem & { phase?: number })[] = [
   { id: 'companies', label: 'Εταιρείες' },
   { id: 'history', label: 'Ενέργειες' },
   { id: 'summary', label: 'Σύνοψη' },
-  { id: 'report', label: 'Αναφορά', phase: 3 },
+  { id: 'report', label: 'Αναφορά' },
   { id: 'settings', label: 'Ρυθμίσεις', phase: 4 },
   { id: 'help', label: 'Οδηγίες', phase: 4 },
 ];
@@ -90,6 +91,8 @@ export function App() {
         <HistoryPage onOpenCompany={openCompany} />
       ) : page.id === 'summary' ? (
         <SummaryPage />
+      ) : page.id === 'report' ? (
+        <ReportPage email={session.user.email ?? ''} />
       ) : (
         <ComingSoon title={page.label} phase={page.phase ?? 2} />
       )}

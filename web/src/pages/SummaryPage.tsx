@@ -1,6 +1,7 @@
 import { Group, NativeSelect, Paper, Progress, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useState } from 'react';
 import { DataTable, type Column } from '../components/DataTable';
+import { labelColumn, numberColumn } from '../components/metricColumns';
 import { Empty, ErrorView, Loading } from '../components/StateViews';
 import { usePref } from '../data/prefs';
 import { store } from '../data/store';
@@ -28,24 +29,6 @@ const groups: { value: SourceGrouping; label: string }[] = [
   { value: 'type', label: 'Τύπος' },
   { value: 'channel', label: 'Κανάλι' },
 ];
-
-function labelColumn<T extends { label: string }>(label: string): Column<T> {
-  return { key: 'label', label, render: (row) => row.label, sortValue: (row) => row.label };
-}
-
-function numberColumn<T>(key: string, label: string, value: (row: T) => number | null, suffix = ''): Column<T> {
-  return {
-    key,
-    label,
-    align: 'right',
-    noWrap: true,
-    sortValue: value,
-    render: (row) => {
-      const n = value(row);
-      return n === null ? '–' : `${n}${suffix}`;
-    },
-  };
-}
 
 export function SummaryPage() {
   const { state, error, data, derived } = useData();
