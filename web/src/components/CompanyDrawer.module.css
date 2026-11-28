@@ -143,16 +143,16 @@
   margin-top: var(--mantine-spacing-xs);
 }
 
-.addContact {
+.outlineAction {
   color: white;
   border-color: rgb(255 255 255 / 38%);
 }
 
-.addContact:hover {
+.outlineAction:hover {
   background: rgb(255 255 255 / 16%);
 }
 
-.addContact:focus-visible {
+.outlineAction:focus-visible {
   outline-color: var(--crm-header-accent);
 }
 

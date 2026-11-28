@@ -3,15 +3,17 @@ import { useState, type ReactNode } from 'react';
 import { notifications } from '@mantine/notifications';
 import { store } from '../data/store';
 import { formatDay } from '../domain/text';
-import type { ActionRow, Company, ContactRow } from '../domain/types';
+import type { ActionRow, Company, ContactRow, LeadRow } from '../domain/types';
 import { ActionForm } from './ActionForm';
 import classes from './CompanyDrawer.module.css';
 import { ContactForm } from './ContactForm';
 import { Emails } from './Emails';
+import { LeadForm } from './LeadForm';
 
 type Editor =
   | { code: number; kind: 'contact'; contact?: ContactRow }
-  | { code: number; kind: 'action'; action?: ActionRow; year?: number };
+  | { code: number; kind: 'action'; action?: ActionRow; year?: number }
+  | { code: number; kind: 'lead'; lead?: LeadRow };
 
 function Field({ label, children, full }: { label: string; children: ReactNode; full?: boolean }) {
   return (
@@ -84,7 +86,15 @@ export function CompanyDrawer({
                   <Button
                     size="compact-sm"
                     variant="outline"
-                    className={classes.addContact}
+                    className={classes.outlineAction}
+                    onClick={() => setEditing({ code: company.code, kind: 'lead' })}
+                  >
+                    + Lead νέας χρονιάς
+                  </Button>
+                  <Button
+                    size="compact-sm"
+                    variant="outline"
+                    className={classes.outlineAction}
                     onClick={() => setEditing({ code: company.code, kind: 'contact' })}
                   >
                     + Επαφή
@@ -138,6 +148,14 @@ export function CompanyDrawer({
                           onClick={() => setEditing({ code: company.code, kind: 'action', year: lead.year })}
                         >
                           + Ενέργεια
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="compact-sm"
+                          aria-label={`Επεξεργασία lead ${lead.year}`}
+                          onClick={() => setEditing({ code: company.code, kind: 'lead', lead: lead.row })}
+                        >
+                          Επεξεργασία
                         </Button>
                       </div>
                       <dl className={classes.grid}>
@@ -219,6 +237,9 @@ export function CompanyDrawer({
           onClose={closeForm}
           onSaved={saved}
         />
+      )}
+      {company && activeEditor?.kind === 'lead' && (
+        <LeadForm company={company} lead={activeEditor.lead} onClose={closeForm} onSaved={saved} />
       )}
     </>
   );
